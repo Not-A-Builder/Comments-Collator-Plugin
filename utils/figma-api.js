@@ -251,8 +251,13 @@ class FigmaAPI {
         try {
             console.log(`Starting comment sync for file ${fileKey}`);
             
+            // Get current comments from database
+            const existingComments = await db.getCommentsByFileKey(fileKey);
+            const existingCommentIds = new Set(existingComments.map(c => c.figma_comment_id));
+            
             // Get comments from Figma API
             const comments = await this.getFileComments(fileKey, userId);
+            const figmaCommentIds = new Set(comments.map(c => c.id));
             
             // Store each comment in database
             for (const comment of comments) {
@@ -272,15 +277,27 @@ class FigmaAPI {
                     figmaUpdatedAt: comment.updated_at ? new Date(comment.updated_at) : null
                 });
             }
+            
+            // Delete comments that no longer exist in Figma
+            const commentsToDelete = existingCommentIds.size > 0 ? 
+                Array.from(existingCommentIds).filter(id => !figmaCommentIds.has(id)) : [];
+                
+            let deletedCount = 0;
+            for (const commentId of commentsToDelete) {
+                await db.deleteComment(commentId);
+                deletedCount++;
+                console.log(`Deleted comment ${commentId} (no longer exists in Figma)`);
+            }
 
             // Update file last synced timestamp
             await db.updateFileLastSynced(fileKey);
             
-            console.log(`Synced ${comments.length} comments for file ${fileKey}`);
+            console.log(`Synced ${comments.length} comments for file ${fileKey}${deletedCount > 0 ? `, deleted ${deletedCount} removed comments` : ''}`);
             
             return {
                 success: true,
                 commentsCount: comments.length,
+                deletedCount: deletedCount,
                 syncedAt: new Date().toISOString()
             };
             

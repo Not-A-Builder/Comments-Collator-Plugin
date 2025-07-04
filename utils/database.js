@@ -94,6 +94,10 @@ class Database {
         return await this.get('SELECT * FROM users WHERE figma_user_id = ?', [figmaUserId]);
     }
 
+    async getUserByHandle(handle) {
+        return await this.get('SELECT * FROM users WHERE handle = ?', [handle]);
+    }
+
     async getAnyValidUser() {
         const sql = `
             SELECT * FROM users 
@@ -226,6 +230,17 @@ class Database {
         return await this.run(sql, [resolvedByUserId, figmaCommentId]);
     }
 
+    async unresolveComment(figmaCommentId) {
+        const sql = `
+            UPDATE comments SET 
+                resolved_at = NULL,
+                resolved_by_id = NULL,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE figma_comment_id = ?
+        `;
+        return await this.run(sql, [figmaCommentId]);
+    }
+
     // Plugin session operations
     async createPluginSession(sessionData) {
         const sql = `
@@ -324,6 +339,33 @@ class Database {
         `;
         const result = await this.get(sql, [userId, figmaFileKey]);
         return result ? result.permission_level : null;
+    }
+
+    async ensureFilePermission(userId, figmaFileKey) {
+        // Check existing permission
+        let permission = await this.checkFilePermission(userId, figmaFileKey);
+        
+        if (!permission) {
+            // Ensure the file exists in the files table first
+            let file = await this.getFileByKey(figmaFileKey);
+            if (!file) {
+                console.log(`Creating file record for ${figmaFileKey}`);
+                // Create a basic file record - we'll update it later when we have more info
+                file = await this.createFile({
+                    figmaFileKey: figmaFileKey,
+                    fileName: 'Unknown File', // Placeholder name
+                    teamId: null,
+                    ownerUserId: userId
+                });
+            }
+            
+            // No permission exists, grant default read permission
+            console.log(`Granting default read permission to user ${userId} for file ${figmaFileKey}`);
+            await this.grantFilePermission(userId, figmaFileKey, 'read', null);
+            permission = 'read';
+        }
+        
+        return permission;
     }
 
     async getUserFilePermissions(userId) {

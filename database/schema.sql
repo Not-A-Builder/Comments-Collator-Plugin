@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS file_permissions (
 CREATE TABLE IF NOT EXISTS plugin_sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,
-    figma_file_key TEXT NOT NULL,
+    figma_file_key TEXT,
     session_token TEXT UNIQUE NOT NULL,
     node_id TEXT,
     last_activity_at DATETIME DEFAULT CURRENT_TIMESTAMP,

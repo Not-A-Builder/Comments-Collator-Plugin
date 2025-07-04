@@ -9,7 +9,7 @@ const router = express.Router();
 
 // OAuth configuration
 const FIGMA_OAUTH_URL = 'https://www.figma.com/oauth';
-const FIGMA_TOKEN_URL = 'https://www.figma.com/api/oauth/token';
+const FIGMA_TOKEN_URL = 'https://api.figma.com/v1/oauth/token';
 const FIGMA_USER_URL = 'https://api.figma.com/v1/me';
 
 // Generate secure state parameter for OAuth
@@ -25,16 +25,19 @@ router.get('/figma', (req, res) => {
     const state = generateState();
     const fileKey = req.query.file_key; // Optional file key for context
     
-    // Store state with optional context
+    // Store state with optional context (extended to 30 minutes)
     stateStore.set(state, { 
         timestamp: Date.now(),
         fileKey: fileKey 
     });
     
-    // Clean up old states (older than 10 minutes)
+    console.log(`OAuth initiated: state=${state}, stored states: ${stateStore.size}`);
+    
+    // Clean up old states (older than 30 minutes)
     for (const [key, value] of stateStore.entries()) {
-        if (Date.now() - value.timestamp > 10 * 60 * 1000) {
+        if (Date.now() - value.timestamp > 30 * 60 * 1000) {
             stateStore.delete(key);
+            console.log(`Cleaned up expired state: ${key}`);
         }
     }
     
@@ -54,7 +57,10 @@ router.get('/figma', (req, res) => {
 router.get('/figma/callback', async (req, res) => {
     const { code, state } = req.query;
     
+    console.log(`OAuth callback received: code=${code ? 'present' : 'missing'}, state=${state}, stored states: ${stateStore.size}`);
+    
     if (!code || !state) {
+        console.log('Missing code or state parameter');
         return res.status(400).send(`
             <!DOCTYPE html>
             <html>
@@ -62,6 +68,7 @@ router.get('/figma/callback', async (req, res) => {
             <body>
                 <h1>Authentication Error</h1>
                 <p>Missing authorization code or state parameter.</p>
+                <p>Code: ${code ? 'Present' : 'Missing'}, State: ${state ? 'Present' : 'Missing'}</p>
                 <a href="/auth/figma">Try again</a>
             </body>
             </html>
@@ -71,6 +78,7 @@ router.get('/figma/callback', async (req, res) => {
     // Verify state parameter
     const storedState = stateStore.get(state);
     if (!storedState) {
+        console.log(`Invalid state parameter: ${state}, available states: ${Array.from(stateStore.keys()).join(', ')}`);
         return res.status(400).send(`
             <!DOCTYPE html>
             <html>
@@ -78,15 +86,36 @@ router.get('/figma/callback', async (req, res) => {
             <body>
                 <h1>Authentication Error</h1>
                 <p>Invalid or expired state parameter.</p>
-                <a href="/auth/figma">Try again</a>
+                <p>This usually happens if you took too long to complete the OAuth flow or if you're using an old link.</p>
+                <a href="/auth/figma">Try again with a fresh link</a>
+            </body>
+            </html>
+        `);
+    }
+    
+    // Check if state is too old (more than 30 minutes)
+    const stateAge = Date.now() - storedState.timestamp;
+    if (stateAge > 30 * 60 * 1000) {
+        console.log(`State parameter expired: ${state}, age: ${Math.floor(stateAge / 1000)}s`);
+        stateStore.delete(state);
+        return res.status(400).send(`
+            <!DOCTYPE html>
+            <html>
+            <head><title>Authentication Error</title></head>
+            <body>
+                <h1>Authentication Error</h1>
+                <p>State parameter has expired (older than 30 minutes).</p>
+                <a href="/auth/figma">Start a fresh OAuth flow</a>
             </body>
             </html>
         `);
     }
     
     stateStore.delete(state);
+    console.log(`State validated and removed: ${state}`);
     
     try {
+        console.log('Exchanging authorization code for access token...');
         // Exchange code for access token
         const tokenResponse = await axios.post(FIGMA_TOKEN_URL, {
             client_id: process.env.FIGMA_CLIENT_ID,
@@ -97,8 +126,10 @@ router.get('/figma/callback', async (req, res) => {
         });
         
         const { access_token, refresh_token, expires_in } = tokenResponse.data;
+        console.log('Access token received successfully');
         
         // Get user information
+        console.log('Fetching user information from Figma...');
         const userResponse = await axios.get(FIGMA_USER_URL, {
             headers: {
                 'Authorization': `Bearer ${access_token}`
@@ -106,6 +137,7 @@ router.get('/figma/callback', async (req, res) => {
         });
         
         const userData = userResponse.data;
+        console.log(`User authenticated: ${userData.handle} (${userData.email})`);
         
         // Store user in database
         const expiresAt = new Date(Date.now() + (expires_in * 1000));
@@ -135,9 +167,11 @@ router.get('/figma/callback', async (req, res) => {
         const sessionToken = crypto.randomBytes(32).toString('hex');
         await db.createPluginSession({
             userId: user.id,
-            figmaFileKey: storedState.fileKey || 'unknown',
+            figmaFileKey: storedState.fileKey || null,
             sessionToken: sessionToken
         });
+        
+        console.log(`Plugin session created: ${sessionToken.substring(0, 8)}...`);
         
         // Return success page with token
         res.send(`
@@ -196,6 +230,11 @@ router.get('/figma/callback', async (req, res) => {
         
     } catch (error) {
         console.error('OAuth callback error:', error);
+        console.error('Error details:', {
+            message: error.message,
+            response: error.response?.data,
+            status: error.response?.status
+        });
         res.status(500).send(`
             <!DOCTYPE html>
             <html>
@@ -203,6 +242,7 @@ router.get('/figma/callback', async (req, res) => {
             <body>
                 <h1>Authentication Error</h1>
                 <p>Failed to complete authentication: ${error.message}</p>
+                <p>Status: ${error.response?.status || 'Unknown'}</p>
                 <a href="/auth/figma">Try again</a>
             </body>
             </html>
@@ -296,6 +336,66 @@ router.post('/refresh', [
         console.error('Token refresh error:', error);
         res.status(500).json({
             error: 'Failed to refresh token'
+        });
+    }
+});
+
+// Check for existing valid session for the current file
+router.get('/check-session', async (req, res) => {
+    try {
+        const { file_key } = req.query;
+        
+        if (!file_key) {
+            return res.status(400).json({
+                error: 'File key is required'
+            });
+        }
+        
+        // Find the most recent valid session for this file or any file from the same user
+        const sql = `
+            SELECT ps.*, u.figma_user_id, u.name, u.handle, u.email
+            FROM plugin_sessions ps
+            JOIN users u ON ps.user_id = u.id
+            WHERE (ps.figma_file_key = ? OR ps.figma_file_key IS NULL)
+            AND ps.created_at > datetime('now', '-24 hours')
+            AND u.access_token IS NOT NULL
+            AND (u.token_expires_at IS NULL OR datetime(u.token_expires_at/1000, 'unixepoch') > datetime('now'))
+            ORDER BY ps.last_activity_at DESC
+            LIMIT 1
+        `;
+        
+        const session = await db.get(sql, [file_key]);
+        
+        if (session) {
+            // Update session activity
+            await db.updateSessionActivity(session.session_token);
+            
+            console.log(`Auto-detected existing session for ${session.handle}`);
+            
+            res.json({
+                success: true,
+                hasValidSession: true,
+                session: {
+                    token: session.session_token,
+                    user: {
+                        id: session.user_id,
+                        handle: session.handle,
+                        name: session.name
+                    },
+                    fileKey: session.figma_file_key
+                }
+            });
+        } else {
+            res.json({
+                success: true,
+                hasValidSession: false
+            });
+        }
+        
+    } catch (error) {
+        console.error('Error checking for existing session:', error);
+        res.status(500).json({
+            error: 'Failed to check for existing session'
         });
     }
 });

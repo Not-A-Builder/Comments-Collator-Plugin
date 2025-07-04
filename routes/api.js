@@ -80,8 +80,8 @@ router.get('/files/:fileKey', authenticateSession, async (req, res) => {
     try {
         const { fileKey } = req.params;
         
-        // Check user permissions
-        const permission = await db.checkFilePermission(req.userId, fileKey);
+        // Check user permissions (auto-grant read if none exist)
+        const permission = await db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
@@ -100,6 +100,20 @@ router.get('/files/:fileKey', authenticateSession, async (req, res) => {
                 teamId: fileInfo.team_id,
                 ownerUserId: req.userId
             });
+        } else if (file.file_name === 'Unknown File') {
+            // Try to update placeholder file with real info from Figma API
+            try {
+                const fileInfo = await figmaApi.getFileInfo(fileKey, req.userId);
+                file = await db.createFile({
+                    figmaFileKey: fileKey,
+                    fileName: fileInfo.name,
+                    teamId: fileInfo.team_id,
+                    ownerUserId: req.userId
+                });
+            } catch (error) {
+                console.log(`Could not fetch file info from Figma API: ${error.message}`);
+                // Continue with placeholder file info
+            }
         }
         
         res.json({
@@ -126,8 +140,8 @@ router.post('/files/:fileKey/sync', authenticateSession, async (req, res) => {
     try {
         const { fileKey } = req.params;
         
-        // Check user permissions
-        const permission = await db.checkFilePermission(req.userId, fileKey);
+        // Check user permissions (auto-grant read if none exist)
+        const permission = await db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
@@ -192,8 +206,8 @@ router.get('/files/:fileKey/stats', authenticateSession, async (req, res) => {
     try {
         const { fileKey } = req.params;
         
-        // Check user permissions
-        const permission = await db.checkFilePermission(req.userId, fileKey);
+        // Check user permissions (auto-grant read if none exist)
+        const permission = await db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'

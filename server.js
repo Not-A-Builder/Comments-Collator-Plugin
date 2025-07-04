@@ -30,9 +30,17 @@ app.use(helmet({
 const corsOptions = {
     origin: function (origin, callback) {
         const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:8080'];
-        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+        
+        // Allow requests with no origin or "null" origin (mobile apps, curl, OAuth redirects, Figma plugins)
+        if (!origin || origin === 'null') {
+            return callback(null, true);
+        }
+        
+        // Allow configured origins
+        if (allowedOrigins.indexOf(origin) !== -1) {
             callback(null, true);
         } else {
+            console.log(`CORS blocked origin: ${origin}, allowed: ${allowedOrigins.join(', ')}`);
             callback(new Error('Not allowed by CORS'));
         }
     },

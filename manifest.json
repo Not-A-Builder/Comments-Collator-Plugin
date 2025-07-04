@@ -8,9 +8,11 @@
   "networkAccess": {
     "allowedDomains": [
       "https://api.figma.com",
-      "http://localhost:3000",
       "https://*.herokuapp.com",
       "https://*.ngrok.io"
+    ],
+    "devAllowedDomains": [
+      "http://localhost:3000"
     ]
   },
   "permissions": ["currentuser"],

@@ -46,8 +46,8 @@ router.get('/:fileKey', [
         const { fileKey } = req.params;
         const { nodeId } = req.query;
         
-        // Check user permissions
-        const permission = await db.checkFilePermission(req.userId, fileKey);
+        // Check user permissions (auto-grant read if none exist)
+        const permission = await db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
@@ -121,8 +121,8 @@ router.post('/:fileKey', [
         const { fileKey } = req.params;
         const { message, nodeId, parentId, position } = req.body;
         
-        // Check user permissions
-        const permission = await db.checkFilePermission(req.userId, fileKey);
+        // Check user permissions (auto-grant read if none exist)
+        const permission = await db.ensureFilePermission(req.userId, fileKey);
         if (!permission || permission === 'read') {
             return res.status(403).json({
                 error: 'Write permission required to post comments'
@@ -186,8 +186,8 @@ router.put('/:fileKey/:commentId/resolve', authenticateSession, async (req, res)
     try {
         const { fileKey, commentId } = req.params;
         
-        // Check user permissions
-        const permission = await db.checkFilePermission(req.userId, fileKey);
+        // Check user permissions (auto-grant read if none exist)
+        const permission = await db.ensureFilePermission(req.userId, fileKey);
         if (!permission || permission === 'read') {
             return res.status(403).json({
                 error: 'Write permission required to resolve comments'
@@ -217,13 +217,46 @@ router.put('/:fileKey/:commentId/resolve', authenticateSession, async (req, res)
     }
 });
 
+// Unresolve a comment (mark as active again)
+router.put('/:fileKey/:commentId/unresolve', authenticateSession, async (req, res) => {
+    try {
+        const { fileKey, commentId } = req.params;
+        
+        // Check user permissions (auto-grant read if none exist)
+        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        if (!permission || permission === 'read') {
+            return res.status(403).json({
+                error: 'Write permission required to unresolve comments'
+            });
+        }
+        
+        // Unresolve comment in database
+        await db.unresolveComment(commentId);
+        
+        res.json({
+            success: true,
+            message: 'Comment marked as unresolved',
+            commentId: commentId,
+            unresolvedBy: req.session.handle,
+            unresolvedAt: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('Error unresolving comment:', error);
+        res.status(500).json({
+            error: 'Failed to unresolve comment',
+            message: error.message
+        });
+    }
+});
+
 // Get comment thread (parent + all replies)
 router.get('/:fileKey/:commentId/thread', authenticateSession, async (req, res) => {
     try {
         const { fileKey, commentId } = req.params;
         
-        // Check user permissions
-        const permission = await db.checkFilePermission(req.userId, fileKey);
+        // Check user permissions (auto-grant read if none exist)
+        const permission = await db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
@@ -292,8 +325,8 @@ router.get('/:fileKey/summary', authenticateSession, async (req, res) => {
         const { fileKey } = req.params;
         const { nodeId } = req.query;
         
-        // Check user permissions
-        const permission = await db.checkFilePermission(req.userId, fileKey);
+        // Check user permissions (auto-grant read if none exist)
+        const permission = await db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
