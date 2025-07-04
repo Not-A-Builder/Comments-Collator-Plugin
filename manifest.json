@@ -1,0 +1,18 @@
+{
+  "name": "Comments Collator",
+  "id": "comments-collator-plugin",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": [
+      "https://api.figma.com",
+      "http://localhost:3000",
+      "https://*.herokuapp.com",
+      "https://*.ngrok.io"
+    ]
+  },
+  "permissions": ["currentuser"],
+  "enablePrivatePluginApi": true
+} 
