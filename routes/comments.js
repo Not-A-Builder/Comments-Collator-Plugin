@@ -101,6 +101,60 @@ router.get('/:fileKey', [
     }
 });
 
+// Get canvas-level comments (comments not associated with frames)
+router.get('/:fileKey/canvas', authenticateSession, async (req, res) => {
+    try {
+        const { fileKey } = req.params;
+        
+        // Check user permissions (auto-grant read if none exist)
+        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        if (!permission) {
+            return res.status(403).json({
+                error: 'Access denied to this file'
+            });
+        }
+        
+        // Get canvas-level comments only
+        const comments = await db.getCanvasComments(fileKey);
+        
+        // Format comments for response
+        const formattedComments = comments.map(comment => ({
+            id: comment.figma_comment_id,
+            message: comment.message,
+            author: {
+                name: comment.author_name,
+                handle: comment.author_handle
+            },
+            nodeId: comment.node_id,
+            nodeName: comment.node_name,
+            parentId: comment.parent_comment_id,
+            position: {
+                x: comment.position_x,
+                y: comment.position_y
+            },
+            createdAt: comment.figma_created_at,
+            updatedAt: comment.figma_updated_at,
+            resolvedAt: comment.resolved_at,
+            isResolved: !!comment.resolved_at
+        }));
+        
+        res.json({
+            success: true,
+            comments: formattedComments,
+            count: formattedComments.length,
+            fileKey: fileKey,
+            type: 'canvas'
+        });
+        
+    } catch (error) {
+        console.error('Error fetching canvas comments:', error);
+        res.status(500).json({
+            error: 'Failed to fetch canvas comments',
+            message: error.message
+        });
+    }
+});
+
 // Post a new comment
 router.post('/:fileKey', [
     authenticateSession,

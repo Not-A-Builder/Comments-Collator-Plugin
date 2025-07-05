@@ -390,8 +390,8 @@ async function unresolveCommentInBackend(commentId) {
   }
 }
 
-// Sync comments from backend
-async function syncComments() {
+// Sync canvas comments from backend
+async function syncCanvasComments() {
   try {
     if (!sessionData.token) {
       figma.ui.postMessage({
@@ -409,7 +409,40 @@ async function syncComments() {
         message: `Synced ${response.commentsCount} comments`
       });
       
-      // Refresh current comments
+      // Fetch and show canvas comments
+      await fetchAndShowCanvasComments();
+    } else {
+      throw new Error(response.error || 'Sync failed');
+    }
+    
+  } catch (error) {
+    figma.ui.postMessage({
+      type: 'sync-error',
+      message: error.message
+    });
+  }
+}
+
+// Sync frame comments from backend
+async function syncFrameComments() {
+  try {
+    if (!sessionData.token) {
+      figma.ui.postMessage({
+        type: 'sync-error',
+        message: 'Authentication required to sync comments'
+      });
+      return;
+    }
+    
+    const response = await makeAPIRequest(`/api/files/${sessionData.fileKey}/sync`, 'POST');
+    
+    if (response.success) {
+      figma.ui.postMessage({
+        type: 'sync-success',
+        message: `Synced ${response.commentsCount} comments`
+      });
+      
+      // Refresh current selection comments
       checkSelectionAndSendComments();
     } else {
       throw new Error(response.error || 'Sync failed');
@@ -421,6 +454,302 @@ async function syncComments() {
       message: error.message
     });
   }
+}
+
+// Fetch and show canvas comments
+async function fetchAndShowCanvasComments() {
+  try {
+    if (!sessionData.token) {
+      // Generate demo canvas comments if not authenticated
+      const demoCanvasComments = [
+        {
+          id: 'demo-canvas-1',
+          text: 'This is a canvas-level comment not associated with any frame',
+          author: 'Design Team',
+          timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          }),
+          resolved: false,
+          x: 0,
+          y: 0,
+          nodeId: null
+        },
+        {
+          id: 'demo-canvas-2',
+          text: 'General feedback about the overall page layout',
+          author: 'Product Manager',
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          }),
+          resolved: false,
+          x: 10,
+          y: 10,
+          nodeId: null
+        }
+      ];
+      
+      figma.ui.postMessage({
+        type: 'canvas-comments-data',
+        comments: demoCanvasComments
+      });
+      return;
+    }
+    
+    // Fetch canvas-level comments from backend (not associated with frames)
+    const response = await makeAPIRequest(`/api/comments/${sessionData.fileKey}/canvas`, 'GET');
+    
+    if (response.success) {
+      // Filter to show only unresolved comments
+      const unresolvedComments = response.comments
+        .filter(comment => !comment.isResolved)
+        .map(comment => ({
+          id: comment.id,
+          text: comment.message,
+          author: comment.author.handle || comment.author.name,
+          timestamp: new Date(comment.createdAt).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          }),
+          resolved: comment.isResolved,
+          x: comment.position.x,
+          y: comment.position.y,
+          nodeId: comment.nodeId,
+          nodeName: comment.nodeName
+        }));
+      
+      figma.ui.postMessage({
+        type: 'canvas-comments-data',
+        comments: unresolvedComments
+      });
+    } else {
+      throw new Error(response.error || 'Failed to fetch canvas comments');
+    }
+    
+  } catch (error) {
+    console.error('Error fetching canvas comments:', error);
+    figma.ui.postMessage({ type: 'error', message: 'Failed to fetch canvas comments: ' + error.message });
+  }
+}
+
+// Collate canvas comments to canvas
+async function collateCanvasCommentsToCanvas() {
+  try {
+    let comments = [];
+    
+    if (!sessionData.token) {
+      // Generate demo canvas comments if not authenticated
+      const demoCanvasComments = [
+        {
+          id: 'demo-canvas-1',
+          text: 'This is a canvas-level comment not associated with any frame',
+          author: 'Design Team',
+          timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          }),
+          resolved: false,
+          x: 0,
+          y: 0,
+          nodeId: null
+        },
+        {
+          id: 'demo-canvas-2',
+          text: 'General feedback about the overall page layout',
+          author: 'Product Manager',
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          }),
+          resolved: false,
+          x: 10,
+          y: 10,
+          nodeId: null
+        }
+      ];
+      
+      // Filter to only unresolved comments
+      comments = demoCanvasComments.filter(comment => !comment.resolved);
+    } else {
+      // Fetch canvas-level comments from backend (not associated with frames)
+      const response = await makeAPIRequest(`/api/comments/${sessionData.fileKey}/canvas`, 'GET');
+      
+      if (response.success) {
+        // Filter to show only unresolved comments
+        comments = response.comments
+          .filter(comment => !comment.isResolved)
+          .map(comment => ({
+            id: comment.id,
+            text: comment.message,
+            author: comment.author.handle || comment.author.name,
+            timestamp: new Date(comment.createdAt).toLocaleDateString('en-GB', {
+              day: '2-digit',
+              month: '2-digit',
+              year: 'numeric'
+            }),
+            resolved: comment.isResolved,
+            x: comment.position.x,
+            y: comment.position.y,
+            nodeId: comment.nodeId,
+            nodeName: comment.nodeName
+          }));
+      } else {
+        throw new Error(response.error || 'Failed to fetch canvas comments');
+      }
+    }
+    
+    if (comments.length === 0) {
+      figma.notify("No unresolved canvas comments found");
+      return;
+    }
+    
+    await figma.loadFontAsync({ family: "Inter", style: "Regular" });
+    await figma.loadFontAsync({ family: "Inter", style: "Medium" });
+    
+    // Create collated frame
+    const collatedFrame = figma.createFrame();
+    collatedFrame.name = `Canvas - Comments`;
+    collatedFrame.fills = [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+    
+    // Detect theme
+    const backgrounds = figma.currentPage.backgrounds;
+    const bgColor = backgrounds && backgrounds[0] ? backgrounds[0].color : null;
+    const isLightTheme = !bgColor || (bgColor.r + bgColor.g + bgColor.b) / 3 > 0.5;
+    
+    if (!isLightTheme) {
+      collatedFrame.fills = [{ type: 'SOLID', color: { r: 0x88/255, g: 0x88/255, b: 0x88/255 } }];
+    }
+    
+    // Create header
+    const header = figma.createText();
+    header.characters = `${comments.length} comments as of ${new Date().toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    })}`;
+    header.fontName = { family: "Inter", style: "Medium" };
+    header.fontSize = 14;
+    header.fills = isLightTheme ? 
+      [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 } }] : 
+      [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+    
+    let currentY = 20;
+    header.x = 20;
+    header.y = currentY;
+    collatedFrame.appendChild(header);
+    
+    currentY += 40;
+    
+    // Add comments
+    for (const comment of comments) {
+      const isChecked = comment.resolved;
+      
+      // Create checkbox
+      const checkbox = await createCheckboxComponent(isChecked, isLightTheme);
+      checkbox.x = 20;
+      checkbox.y = currentY;
+      checkbox.setPluginData('comment-id', comment.id);
+      checkbox.setPluginData('is-comment-checkbox', 'true');
+      collatedFrame.appendChild(checkbox);
+      
+      // Create comment text (first line - comment content)
+      const commentText = figma.createText();
+      commentText.characters = comment.text;
+      commentText.fontName = { family: "Inter", style: "Regular" };
+      commentText.fontSize = 12;
+      commentText.fills = isLightTheme ? 
+        [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 } }] : 
+        [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
+      
+      commentText.x = 46;
+      commentText.y = currentY + 1;
+      commentText.textAutoResize = "WIDTH_AND_HEIGHT";
+      commentText.constraints = { horizontal: "MIN", vertical: "MIN" };
+      
+      collatedFrame.appendChild(commentText);
+      
+      // Create author and timestamp text (second line - smaller font)
+      const metaText = figma.createText();
+      metaText.characters = `${comment.author}, ${comment.timestamp}`;
+      metaText.fontName = { family: "Inter", style: "Regular" };
+      metaText.fontSize = 8; // 2px smaller than comment text
+      metaText.fills = isLightTheme ? 
+        [{ type: 'SOLID', color: { r: 0.5, g: 0.5, b: 0.5 } }] : 
+        [{ type: 'SOLID', color: { r: 0.7, g: 0.7, b: 0.7 } }];
+      
+      metaText.x = 46;
+      metaText.y = currentY + commentText.height + 3;
+      metaText.textAutoResize = "WIDTH_AND_HEIGHT";
+      metaText.constraints = { horizontal: "MIN", vertical: "MIN" };
+      
+      collatedFrame.appendChild(metaText);
+      
+      currentY += commentText.height + metaText.height + 15;
+    }
+    
+    // Set frame size with minimum width of 350px and maximum width of 450px
+    const frameWidth = Math.min(450, Math.max(350, 400));
+    collatedFrame.resize(frameWidth, currentY + 20);
+    
+    // Position at top left of canvas, aligned with top-most element
+    const position = findCanvasPosition(collatedFrame);
+    collatedFrame.x = position.x;
+    collatedFrame.y = position.y;
+    
+    // Show the new frame in viewport
+    figma.viewport.scrollAndZoomIntoView([collatedFrame]);
+    
+    figma.notify(`Created canvas comment collation with ${comments.length} unresolved comments`);
+    
+  } catch (error) {
+    console.error('Error collating canvas comments:', error);
+    figma.notify('Error creating canvas comment collation: ' + error.message);
+  }
+}
+
+// Find position for canvas comments frame
+function findCanvasPosition(collatedFrame) {
+  const allNodes = figma.currentPage.findAll(node => 
+    node.type === 'FRAME' || 
+    node.type === 'GROUP' || 
+    node.type === 'TEXT' ||
+    node.type === 'RECTANGLE' ||
+    node.type === 'ELLIPSE' ||
+    node.type === 'POLYGON' ||
+    node.type === 'STAR' ||
+    node.type === 'VECTOR' ||
+    node.type === 'COMPONENT' ||
+    node.type === 'INSTANCE'
+  );
+  
+  if (allNodes.length === 0) {
+    return { x: 0, y: 0 };
+  }
+  
+  // Find the top-most element
+  let topMostY = allNodes[0].y;
+  let leftMostX = allNodes[0].x;
+  
+  allNodes.forEach(node => {
+    if (node.y < topMostY) {
+      topMostY = node.y;
+    }
+    if (node.x < leftMostX) {
+      leftMostX = node.x;
+    }
+  });
+  
+  // Position above the top-most element with some spacing
+  return {
+    x: leftMostX,
+    y: topMostY - collatedFrame.height - 80
+  };
 }
 
 // Collate comments to canvas
@@ -468,7 +797,7 @@ async function collateCommentsToCanvas() {
     
     // Create header
     const header = figma.createText();
-    header.characters = `Unresolved Comments (${comments.length}) - ${new Date().toLocaleDateString('en-GB', {
+    header.characters = `${comments.length} comments as of ${new Date().toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
@@ -502,7 +831,7 @@ async function collateCommentsToCanvas() {
       const commentText = figma.createText();
       commentText.characters = comment.text;
       commentText.fontName = { family: "Inter", style: "Regular" };
-      commentText.fontSize = 10;
+      commentText.fontSize = 12;
       commentText.fills = isLightTheme ? 
         [{ type: 'SOLID', color: { r: 0, g: 0, b: 0 } }] : 
         [{ type: 'SOLID', color: { r: 1, g: 1, b: 1 } }];
@@ -621,8 +950,10 @@ function findOptimalPosition(selectedFrame, collatedFrame) {
 figma.ui.onmessage = async (msg) => {
   if (msg.type === 'close') {
     figma.closePlugin();
-  } else if (msg.type === 'collate-comments') {
+  } else if (msg.type === 'add-frame-comments') {
     await collateCommentsToCanvas();
+  } else if (msg.type === 'add-canvas-comments') {
+    await collateCanvasCommentsToCanvas();
   } else if (msg.type === 'toggle-checkbox') {
     await toggleCheckbox(msg.nodeId);
   } else if (msg.type === 'authenticate') {
@@ -633,8 +964,10 @@ figma.ui.onmessage = async (msg) => {
       type: 'open-url',
       url: authUrl
     });
-  } else if (msg.type === 'sync-comments') {
-    await syncComments();
+  } else if (msg.type === 'sync-canvas-comments') {
+    await syncCanvasComments();
+  } else if (msg.type === 'sync-frame-comments') {
+    await syncFrameComments();
   } else if (msg.type === 'logout') {
     sessionData.token = null;
     sessionData.user = null;

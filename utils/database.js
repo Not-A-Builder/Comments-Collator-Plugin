@@ -214,6 +214,15 @@ class Database {
         return await this.all(sql, [figmaFileKey, nodeId]);
     }
 
+    async getCanvasComments(figmaFileKey) {
+        const sql = `
+            SELECT * FROM comments 
+            WHERE figma_file_key = ? AND (node_id = '0:1' OR node_name = 'Page 1' OR node_id IS NULL OR node_id = '') 
+            ORDER BY figma_created_at ASC
+        `;
+        return await this.all(sql, [figmaFileKey]);
+    }
+
     async deleteComment(figmaCommentId) {
         const sql = 'DELETE FROM comments WHERE figma_comment_id = ?';
         return await this.run(sql, [figmaCommentId]);

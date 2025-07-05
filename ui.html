@@ -46,7 +46,7 @@
       
       .collate-button {
         width: 100%;
-        padding: 12px;
+        padding: 10px 12px;
         background: #1a73e8;
         color: white;
         border: none;
@@ -54,8 +54,10 @@
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
-        margin-bottom: 20px;
+        margin-bottom: 12px;
         transition: all 0.2s ease;
+        height: 36px;
+        box-sizing: border-box;
       }
       
       .collate-button:hover:not(:disabled) {
@@ -200,12 +202,14 @@
         background: #1a73e8;
         color: white;
         border: none;
-        padding: 12px;
+        padding: 10px 12px;
         border-radius: 6px;
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s ease;
+        height: 36px;
+        box-sizing: border-box;
       }
       
       .primary-button:hover {
@@ -230,16 +234,77 @@
         background: #28a745;
         color: white;
         border: none;
-        padding: 8px 16px;
-        border-radius: 6px;
+        padding: 10px 16px;
+        border-radius: 4px;
         font-size: 14px;
         cursor: pointer;
         width: 100%;
-        margin-top: 8px;
+        height: 36px;
+        box-sizing: border-box;
       }
       
       .sync-button:hover {
         background: #218838;
+      }
+      
+      .state-section {
+        margin-bottom: 4px;
+      }
+      
+      .info-text {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 12px;
+        text-align: left;
+        font-weight: 600;
+      }
+      
+      .info-text.subheader {
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 12px;
+        text-align: left;
+        font-weight: 600;
+      }
+      
+      .button-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+      
+      .sync-button-half {
+        background: #28a745;
+        color: white;
+        border: none;
+        padding: 10px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        flex: 1;
+        height: 36px;
+        box-sizing: border-box;
+      }
+      
+      .sync-button-half:hover {
+        background: #218838;
+      }
+      
+      .collate-button-half {
+        background: #1a73e8;
+        color: white;
+        border: none;
+        padding: 10px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        flex: 1;
+        height: 36px;
+        box-sizing: border-box;
+      }
+      
+      .collate-button-half:hover {
+        background: #1557b0;
       }
       
       .divider {
@@ -335,19 +400,80 @@
         font-size: 14px;
       }
       
-      .user-info {
-        background: #d4edda;
-        border: 1px solid #c3e6cb;
-        border-radius: 8px;
-        padding: 16px;
-        margin-bottom: 20px;
+      .user-status {
+        border-radius: 6px;
+        padding: 12px 16px;
+        margin-bottom: 8px;
+        transition: all 0.2s ease;
       }
       
-      .user-details {
+      .user-status.connected {
+        background: white;
+        border: 1px solid #DDDDDD;
+      }
+      
+      .user-status.disconnected {
+        background: #f8f9fa;
+        border: 1px solid #DDDDDD;
+      }
+      
+      .user-status-details {
         display: flex;
-        justify-content: space-between;
         align-items: center;
-        margin-bottom: 8px;
+        gap: 12px;
+      }
+      
+      .status-indicator {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+        transition: background-color 0.2s ease;
+      }
+      
+      .status-indicator.connected {
+        background-color: #28a745;
+      }
+      
+      .status-indicator.disconnected {
+        background-color: #6c757d;
+      }
+      
+      .user-status-text {
+        font-size: 14px;
+        flex: 1;
+        transition: color 0.2s ease;
+      }
+      
+      .user-status.connected .user-status-text {
+        color: #155724;
+      }
+      
+      .user-status.disconnected .user-status-text {
+        color: #495057;
+      }
+      
+      .auth-button {
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+      }
+      
+      .auth-button:hover {
+        background: #5a6268;
+      }
+      
+      .auth-button.logout {
+        background: #6c757d;
+      }
+      
+      .auth-button.logout:hover {
+        background: #5a6268;
       }
       
       .auth-status {
@@ -365,17 +491,16 @@
     </style>
   </head>
   <body>
-    <div id="status" class="status info">
+    <div id="status" class="status info" style="display: none;">
       Select a frame to view its comments
     </div>
     
-        <!-- Info Section for Demo Mode -->
-    <div id="demo-info" class="info-section">
-      <h3>🔗 Real Backend Integration</h3>
-      <p>This plugin connects to a real backend server for authentic comment integration with webhooks, OAuth, and live data sync.</p>
-      <div class="auth-status">
-        <p id="connection-status">Backend: Not connected</p>
-        <button id="connect-button" class="primary-button" onclick="showAuthSection()">Connect to Backend</button>
+    <!-- Shared User Status Section -->
+    <div id="user-status-section" class="user-status">
+      <div class="user-status-details">
+        <div class="status-indicator" id="status-indicator"></div>
+        <span id="user-status-text" class="user-status-text">Please connect to backend</span>
+        <button id="auth-toggle-btn" onclick="handleAuthToggle()" class="auth-button">Login</button>
       </div>
     </div>
 
@@ -414,19 +539,30 @@
       <div id="auth-error" class="error-message" style="display: none;"></div>
       <div id="auth-success" class="success-message" style="display: none;"></div>
     </div>
-
-    <!-- User Info Section -->
-    <div id="user-section" class="user-info" style="display: none;">
-      <div class="user-details">
-        <span id="user-name">Connected as: </span>
-        <button id="logout-btn" onclick="logout()" class="secondary-button">Logout</button>
-      </div>
-      <button id="sync-btn" onclick="syncComments()" class="sync-button">🔄 Sync Comments</button>
+    
+    <!-- Initial State - No Selection -->
+    <div id="no-selection-state" class="state-section" style="display: none;">
+      <div class="info-text subheader">Select a frame to view its comments</div>
+      <button id="sync-canvas-btn" onclick="syncCanvasComments()" class="sync-button">Or, Sync Canvas Comments</button>
     </div>
     
-    <button id="collate-button" class="collate-button" disabled>
-      Collate Comments to Canvas
-    </button>
+    <!-- Canvas Comments State -->
+    <div id="canvas-comments-state" class="state-section" style="display: none;">
+      <div id="canvas-info" class="info-text">Canvas: 0 comments</div>
+      <div class="button-row">
+        <button id="resync-canvas-btn" onclick="syncCanvasComments()" class="sync-button-half">Re-sync Canvas Comments</button>
+        <button id="add-canvas-btn" onclick="addCanvasCommentsToCanvas()" class="collate-button-half">Add to Canvas</button>
+      </div>
+    </div>
+    
+    <!-- Frame Comments State -->
+    <div id="frame-comments-state" class="state-section" style="display: none;">
+      <div id="frame-info" class="info-text">Frame: 0 comments</div>
+      <div class="button-row">
+        <button id="resync-frame-btn" onclick="syncFrameComments()" class="sync-button-half">Re-sync Frame Comments</button>
+        <button id="add-frame-btn" onclick="addFrameCommentsToCanvas()" class="collate-button-half">Add to Canvas</button>
+      </div>
+    </div>
     
     <div id="comments-container" class="comments-container hidden">
       <div id="comments-list"></div>
@@ -441,45 +577,80 @@
       let selectedFrameName = '';
       let isAuthenticated = false;
       let currentUser = null;
+      let currentState = 'no-selection'; // 'no-selection', 'canvas-comments', 'frame-comments'
       
       // UI state management
       function showStatus(message, type = 'info') {
-        const status = document.getElementById('status');
-        status.textContent = message;
-        status.className = `status ${type}`;
+        // Status messages are disabled - no dynamic messages shown
+        return;
       }
       
       function updateAuthUI(authenticated, user = null) {
         isAuthenticated = authenticated;
         currentUser = user;
         
-        const demoInfo = document.getElementById('demo-info');
+        const userStatusSection = document.getElementById('user-status-section');
+        const statusIndicator = document.getElementById('status-indicator');
+        const userStatusText = document.getElementById('user-status-text');
+        const authToggleBtn = document.getElementById('auth-toggle-btn');
         const authSection = document.getElementById('auth-section');
-        const userSection = document.getElementById('user-section');
-        const connectionStatus = document.getElementById('connection-status');
         
         if (authenticated && user) {
           // Show authenticated state
-          demoInfo.style.display = 'none';
+          userStatusSection.className = 'user-status connected';
+          statusIndicator.className = 'status-indicator connected';
+          userStatusText.textContent = `${user.handle || user.name}`;
+          authToggleBtn.textContent = 'Logout';
+          authToggleBtn.className = 'auth-button logout';
           authSection.style.display = 'none';
-          userSection.style.display = 'block';
           
-          document.getElementById('user-name').textContent = `Connected as: ${user.handle || user.name}`;
-          showStatus('Connected to backend - showing real comments', 'success');
+          // Show initial no-selection state
+          showState('no-selection');
         } else {
           // Show unauthenticated state
-          demoInfo.style.display = 'block';
+          userStatusSection.className = 'user-status disconnected';
+          statusIndicator.className = 'status-indicator disconnected';
+          userStatusText.textContent = 'Please connect to backend';
+          authToggleBtn.textContent = 'Login';
+          authToggleBtn.className = 'auth-button';
           authSection.style.display = 'none';
-          userSection.style.display = 'none';
           
-          connectionStatus.textContent = 'Backend: Not connected (using demo data)';
-          showStatus('Using demo data - connect to backend for real comments', 'info');
+          // Hide all states
+          hideAllStates();
+        }
+      }
+      
+      function showState(state) {
+        currentState = state;
+        hideAllStates();
+        
+        if (state === 'no-selection') {
+          document.getElementById('no-selection-state').style.display = 'block';
+        } else if (state === 'canvas-comments') {
+          document.getElementById('canvas-comments-state').style.display = 'block';
+        } else if (state === 'frame-comments') {
+          document.getElementById('frame-comments-state').style.display = 'block';
+        }
+      }
+      
+      function hideAllStates() {
+        document.getElementById('no-selection-state').style.display = 'none';
+        document.getElementById('canvas-comments-state').style.display = 'none';
+        document.getElementById('frame-comments-state').style.display = 'none';
+      }
+      
+      function handleAuthToggle() {
+        if (isAuthenticated) {
+          // User is authenticated, so logout
+          logout();
+        } else {
+          // User is not authenticated, so show login options
+          showAuthSection();
         }
       }
       
       function showAuthSection() {
         document.getElementById('auth-section').style.display = 'block';
-        document.getElementById('demo-info').style.display = 'none';
       }
       
       function hideAuthMessages() {
@@ -501,27 +672,30 @@
         document.getElementById('auth-error').style.display = 'none';
       }
       
-      function showComments(commentsData, frameName) {
+      function showComments(commentsData, frameName, isCanvas = false) {
         comments = commentsData;
         selectedFrameName = frameName;
         
         const container = document.getElementById('comments-container');
         const list = document.getElementById('comments-list');
         const noComments = document.getElementById('no-comments');
-        const collateButton = document.getElementById('collate-button');
+        
+        if (isCanvas) {
+          // Show canvas comments state
+          showState('canvas-comments');
+          document.getElementById('canvas-info').textContent = `Canvas: ${comments.length} comments`;
+        } else {
+          // Show frame comments state
+          showState('frame-comments');
+          document.getElementById('frame-info').textContent = `${frameName}: ${comments.length} comments`;
+        }
         
         if (comments.length === 0) {
           container.classList.add('hidden');
           noComments.classList.remove('hidden');
-          collateButton.disabled = true;
-          showStatus(`No comments found on "${frameName}"`, 'info');
         } else {
           container.classList.remove('hidden');
           noComments.classList.add('hidden');
-          collateButton.disabled = false;
-          
-          const dataSource = isAuthenticated ? 'real backend data' : 'demo data';
-          showStatus(`Found ${comments.length} comment(s) on "${frameName}" (${dataSource})`, 'success');
           
           // Clear and populate comments list
           list.innerHTML = '';
@@ -552,7 +726,11 @@
       function hideComments() {
         document.getElementById('comments-container').classList.add('hidden');
         document.getElementById('no-comments').classList.add('hidden');
-        document.getElementById('collate-button').disabled = true;
+        
+        // Show no-selection state when hiding comments
+        if (isAuthenticated) {
+          showState('no-selection');
+        }
       }
       
       // Authentication functions
@@ -587,14 +765,28 @@
         document.getElementById('session-token').value = '';
       }
       
-      function syncComments() {
+      function syncCanvasComments() {
         if (!isAuthenticated) {
-          showStatus('Authentication required to sync comments', 'error');
           return;
         }
         
-        showStatus('Syncing comments from backend...', 'info');
-        parent.postMessage({ pluginMessage: { type: 'sync-comments' } }, '*');
+        parent.postMessage({ pluginMessage: { type: 'sync-canvas-comments' } }, '*');
+      }
+      
+      function syncFrameComments() {
+        if (!isAuthenticated) {
+          return;
+        }
+        
+        parent.postMessage({ pluginMessage: { type: 'sync-frame-comments' } }, '*');
+      }
+      
+      function addCanvasCommentsToCanvas() {
+        parent.postMessage({ pluginMessage: { type: 'add-canvas-comments' } }, '*');
+      }
+      
+      function addFrameCommentsToCanvas() {
+        parent.postMessage({ pluginMessage: { type: 'add-frame-comments' } }, '*');
       }
       
       function escapeHtml(text) {
@@ -615,37 +807,38 @@
           const user = event.data.pluginMessage.user;
           const message = event.data.pluginMessage.message;
           updateAuthUI(true, user);
-          showStatus(`${message} as ${user.handle || user.name}`, 'success');
+          // Hide auth section if it was open
+          document.getElementById('auth-section').style.display = 'none';
         } else if (type === 'show-auth-screen') {
           updateAuthUI(false);
-          showStatus('Connect to backend for real comment integration', 'info');
         } else if (type === 'comments-data') {
           const { comments: commentsData, frameName } = event.data.pluginMessage;
-          showComments(commentsData, frameName);
+          showComments(commentsData, frameName, false);
+        } else if (type === 'canvas-comments-data') {
+          const { comments: commentsData } = event.data.pluginMessage;
+          showComments(commentsData, 'Canvas', true);
         } else if (type === 'no-selection') {
           hideComments();
-          showStatus('Select a frame to view its comments', 'info');
         } else if (type === 'not-frame') {
           hideComments();
-          showStatus('Please select a frame (not a component or other element)', 'warning');
         } else if (type === 'no-comments') {
           hideComments();
-          showStatus('No comments found on this frame', 'info');
         } else if (type === 'auth-success') {
           const user = event.data.pluginMessage.user;
           updateAuthUI(true, user);
           showAuthSuccess(`Successfully connected as ${user.handle || user.name}`);
           document.getElementById('session-token').value = '';
+          // Hide auth section after successful authentication
+          document.getElementById('auth-section').style.display = 'none';
         } else if (type === 'auth-error') {
           showAuthError(event.data.pluginMessage.message);
           updateAuthUI(false);
         } else if (type === 'logged-out') {
           updateAuthUI(false);
-          showStatus('Logged out - using demo data', 'info');
         } else if (type === 'sync-success') {
-          showStatus(event.data.pluginMessage.message, 'success');
+          // Sync success - no status message needed
         } else if (type === 'sync-error') {
-          showStatus(event.data.pluginMessage.message, 'error');
+          // Sync error - no status message needed
         } else if (type === 'open-url') {
           // Plugin requested to open URL (for OAuth flow)
           console.log('Open URL:', event.data.pluginMessage.url);
