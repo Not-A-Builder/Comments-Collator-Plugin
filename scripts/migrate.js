@@ -22,8 +22,51 @@ const db = new sqlite3.Database(process.env.DATABASE_URL || './database/comments
 const schemaPath = path.join(__dirname, '../database/schema.sql');
 const schema = fs.readFileSync(schemaPath, 'utf8');
 
-// Split by semicolon and execute each statement
-const statements = schema.split(';').filter(stmt => stmt.trim().length > 0);
+// Split statements properly, handling multi-line statements like triggers
+function parseStatements(sql) {
+    const statements = [];
+    let current = '';
+    let inTrigger = false;
+    
+    const lines = sql.split('\n');
+    
+    for (const line of lines) {
+        const trimmedLine = line.trim();
+        
+        // Skip comments and empty lines
+        if (trimmedLine.startsWith('--') || trimmedLine === '') {
+            continue;
+        }
+        
+        current += line + '\n';
+        
+        // Check if we're starting a trigger
+        if (trimmedLine.toUpperCase().includes('CREATE TRIGGER')) {
+            inTrigger = true;
+        }
+        
+        // Check if we're ending a trigger
+        if (inTrigger && trimmedLine.toUpperCase() === 'END;') {
+            inTrigger = false;
+            statements.push(current.trim());
+            current = '';
+        }
+        // Check for regular statement end (semicolon) when not in trigger
+        else if (!inTrigger && trimmedLine.endsWith(';')) {
+            statements.push(current.trim());
+            current = '';
+        }
+    }
+    
+    // Add any remaining statement
+    if (current.trim()) {
+        statements.push(current.trim());
+    }
+    
+    return statements.filter(stmt => stmt.length > 0);
+}
+
+const statements = parseStatements(schema);
 
 console.log(`Executing ${statements.length} database statements...`);
 
