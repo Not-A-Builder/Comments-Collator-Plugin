@@ -292,7 +292,9 @@ class FigmaAPI {
             // Update file last synced timestamp
             await db.updateFileLastSynced(fileKey);
             
-            console.log(`Synced ${comments.length} comments for file ${fileKey}${deletedCount > 0 ? `, deleted ${deletedCount} removed comments` : ''}`);
+            const syncCommentWord = comments.length === 1 ? 'comment' : 'comments';
+    const deletedCommentWord = deletedCount === 1 ? 'comment' : 'comments';
+    console.log(`Synced ${comments.length} ${syncCommentWord} for file ${fileKey}${deletedCount > 0 ? `, deleted ${deletedCount} removed ${deletedCommentWord}` : ''}`);
             
             return {
                 success: true,

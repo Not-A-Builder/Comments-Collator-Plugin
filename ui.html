@@ -10,8 +10,8 @@
         padding: 20px; 
         background: #f8f9fa;
         color: #333;
-        height: 100vh;
-        overflow: hidden;
+        min-height: 100vh;
+        overflow-y: auto;
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
@@ -58,6 +58,9 @@
         transition: all 0.2s ease;
         height: 36px;
         box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       
       .collate-button:hover:not(:disabled) {
@@ -129,11 +132,17 @@
       
       .comment-item {
         padding: 16px;
-        border-bottom: 1px solid #f0f0f0;
+        position: relative;
       }
       
-      .comment-item:last-child {
-        border-bottom: none;
+      .comment-item:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        bottom: -4px;
+        left: 16px;
+        right: 16px;
+        height: 1px;
+        background-color: #f0f0f0;
       }
       
       .comment-text {
@@ -153,11 +162,11 @@
       }
       
       .comment-author {
-        font-weight: 600;
+        font-weight: normal;
       }
       
       .comment-timestamp {
-        font-style: italic;
+        font-style: normal;
       }
       
       .no-comments {
@@ -199,7 +208,7 @@
       }
       
       .primary-button {
-        background: #1a73e8;
+        background: #222222;
         color: white;
         border: none;
         padding: 10px 12px;
@@ -210,10 +219,13 @@
         transition: all 0.2s ease;
         height: 36px;
         box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       
       .primary-button:hover {
-        background: #1557b0;
+        background: #333333;
       }
       
       .secondary-button {
@@ -224,6 +236,11 @@
         border-radius: 4px;
         font-size: 12px;
         cursor: pointer;
+        height: 36px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       
       .secondary-button:hover {
@@ -241,6 +258,9 @@
         width: 100%;
         height: 36px;
         box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       
       .sync-button:hover {
@@ -284,6 +304,9 @@
         flex: 1;
         height: 36px;
         box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       
       .sync-button-half:hover {
@@ -301,6 +324,9 @@
         flex: 1;
         height: 36px;
         box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       
       .collate-button-half:hover {
@@ -337,6 +363,7 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+        margin-top: 2px;
       }
       
       .token-input label {
@@ -353,16 +380,32 @@
       }
       
       .token-input button {
-        background: #17a2b8;
+        background: #CCCCCC;
         color: white;
         border: none;
         padding: 8px;
         border-radius: 4px;
+        cursor: not-allowed;
+        height: 36px;
+        box-sizing: border-box;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .token-input button:disabled {
+        background: #CCCCCC;
+        cursor: not-allowed;
+      }
+      
+      .token-input button:enabled {
+        background: #28a745;
         cursor: pointer;
       }
       
-      .token-input button:hover {
-        background: #138496;
+      .token-input button:enabled:hover {
+        background: #218838;
       }
       
       .auth-help {
@@ -453,6 +496,12 @@
         color: #495057;
       }
       
+      .auth-description {
+        font-size: 14px;
+        color: #495057;
+        margin: 0 0 16px 0;
+      }
+      
       .auth-button {
         background: #6c757d;
         color: white;
@@ -462,6 +511,9 @@
         font-size: 12px;
         cursor: pointer;
         transition: background-color 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
       
       .auth-button:hover {
@@ -476,6 +528,62 @@
         background: #5a6268;
       }
       
+      .auth-url-section {
+        margin-top: 12px;
+        margin-bottom: 12px;
+        padding: 12px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+      }
+      
+      .auth-url-section p {
+        margin: 0 0 8px 0;
+        font-size: 12px;
+        color: #495057;
+      }
+      
+      .auth-url-help {
+        margin-top: 10px !important;
+        line-height: 1.5 !important;
+      }
+      
+      .url-input-group {
+        display: flex;
+        gap: 8px;
+        margin: 8px 0;
+      }
+      
+      .auth-url-input {
+        flex: 1;
+        padding: 6px 8px;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+        font-size: 11px;
+        font-family: monospace;
+        background: white;
+      }
+      
+      .copy-button {
+        background: #1a73e8;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 11px;
+        cursor: pointer;
+        white-space: nowrap;
+        height: 36px;
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .copy-button:hover {
+        background: #1557b0;
+      }
+      
       .auth-status {
         display: flex;
         justify-content: space-between;
@@ -488,6 +596,41 @@
         font-size: 14px;
         color: #6c757d;
       }
+      
+      /* Button loading states */
+      .button-loading {
+        position: relative;
+        pointer-events: none;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      
+      .button-synced {
+        position: relative;
+        pointer-events: none;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      
+      .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top: 2px solid white;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        display: block;
+        margin: 0;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+
     </style>
   </head>
   <body>
@@ -500,41 +643,40 @@
       <div class="user-status-details">
         <div class="status-indicator" id="status-indicator"></div>
         <span id="user-status-text" class="user-status-text">Please connect to backend</span>
-        <button id="auth-toggle-btn" onclick="handleAuthToggle()" class="auth-button">Login</button>
+        <button id="auth-toggle-btn" onclick="handleAuthToggle()" class="auth-button">Connect</button>
       </div>
     </div>
 
     <!-- Authentication Section -->
     <div id="auth-section" class="auth-container" style="display: none;">
       <h3>🔐 Backend Authentication</h3>
-      <p>Connect to the Comments Collator backend for real comment integration.</p>
+      <p class="auth-description">Connect your Figma account for real-time comment collation.</p>
       
       <div class="auth-form">
         <div class="auth-options">
           <button id="open-auth-btn" onclick="openAuthentication()" class="primary-button">
-            🌐 Authenticate with Figma
+            Authenticate with Figma
           </button>
           
-          <div class="divider">or</div>
+          <!-- OAuth URL Display - appears right after button -->
+          <div id="auth-url-section" class="auth-url-section" style="display: none;">
+            <p><strong>Step 1:</strong> Copy this URL and open it in your browser:</p>
+            <div class="url-input-group">
+              <input type="text" id="auth-url-display" readonly class="auth-url-input" placeholder="OAuth URL will appear here..." />
+              <button onclick="copyAuthURL()" class="copy-button">Copy</button>
+            </div>
+            <p class="auth-url-help"><strong>Step 2:</strong> Complete the OAuth flow in your browser, then copy the session token and paste it below.</p>
+          </div>
           
           <div class="token-input">
             <label for="session-token">Session Token:</label>
-            <input type="password" id="session-token" placeholder="Paste session token from browser" />
-            <button id="authenticate-btn" onclick="authenticateWithToken()">Connect</button>
+            <input type="password" id="session-token" placeholder="Paste session token from browser" oninput="updateConnectButtonState()" onpaste="setTimeout(updateConnectButtonState, 10)" />
+            <button id="authenticate-btn" onclick="authenticateWithToken()" disabled>Connect</button>
           </div>
         </div>
       </div>
       
-      <div class="auth-help">
-        <p><strong>Authentication Steps:</strong></p>
-        <ol>
-          <li>Click "Authenticate with Figma" to open browser</li>
-          <li>Complete OAuth flow in the browser</li>
-          <li>Copy the session token from the success page</li>
-          <li>Paste it in the field above and click "Connect"</li>
-        </ol>
-        <p><small>The backend server must be running on localhost:3000</small></p>
-      </div>
+
       
       <div id="auth-error" class="error-message" style="display: none;"></div>
       <div id="auth-success" class="success-message" style="display: none;"></div>
@@ -543,14 +685,14 @@
     <!-- Initial State - No Selection -->
     <div id="no-selection-state" class="state-section" style="display: none;">
       <div class="info-text subheader">Select a frame to view its comments</div>
-      <button id="sync-canvas-btn" onclick="syncCanvasComments()" class="sync-button">Or, Sync Canvas Comments</button>
+      <button id="sync-canvas-btn" class="sync-button">Or, Sync Canvas Comments</button>
     </div>
     
     <!-- Canvas Comments State -->
     <div id="canvas-comments-state" class="state-section" style="display: none;">
       <div id="canvas-info" class="info-text">Canvas: 0 comments</div>
       <div class="button-row">
-        <button id="resync-canvas-btn" onclick="syncCanvasComments()" class="sync-button-half">Re-sync Canvas Comments</button>
+        <button id="resync-canvas-btn" class="sync-button-half">Re-sync Canvas Comments</button>
         <button id="add-canvas-btn" onclick="addCanvasCommentsToCanvas()" class="collate-button-half">Add to Canvas</button>
       </div>
     </div>
@@ -559,7 +701,7 @@
     <div id="frame-comments-state" class="state-section" style="display: none;">
       <div id="frame-info" class="info-text">Frame: 0 comments</div>
       <div class="button-row">
-        <button id="resync-frame-btn" onclick="syncFrameComments()" class="sync-button-half">Re-sync Frame Comments</button>
+        <button id="resync-frame-btn" class="sync-button-half">Re-sync Frame Comments</button>
         <button id="add-frame-btn" onclick="addFrameCommentsToCanvas()" class="collate-button-half">Add to Canvas</button>
       </div>
     </div>
@@ -585,6 +727,40 @@
         return;
       }
       
+      // Button loading states
+      function showButtonSpinner(button) {
+        const originalText = button.textContent;
+        button.dataset.originalText = originalText;
+        button.innerHTML = '<span class="spinner"></span>';
+        button.classList.add('button-loading');
+      }
+      
+      function showButtonSynced(button) {
+        button.innerHTML = 'Synced!';
+        button.classList.remove('button-loading');
+        button.classList.add('button-synced');
+      }
+      
+      function resetButton(button) {
+        const originalText = button.dataset.originalText || button.textContent;
+        button.textContent = originalText;
+        button.classList.remove('button-loading', 'button-synced');
+        delete button.dataset.originalText;
+      }
+      
+      function handleSyncButtonSequence(button, syncFunction) {
+        showButtonSpinner(button);
+        
+        return syncFunction().then(() => {
+          showButtonSynced(button);
+          setTimeout(() => {
+            resetButton(button);
+          }, 1500);
+        }).catch(() => {
+          resetButton(button);
+        });
+      }
+      
       function updateAuthUI(authenticated, user = null) {
         isAuthenticated = authenticated;
         currentUser = user;
@@ -600,7 +776,7 @@
           userStatusSection.className = 'user-status connected';
           statusIndicator.className = 'status-indicator connected';
           userStatusText.textContent = `${user.handle || user.name}`;
-          authToggleBtn.textContent = 'Logout';
+          authToggleBtn.textContent = 'End Session';
           authToggleBtn.className = 'auth-button logout';
           authSection.style.display = 'none';
           
@@ -611,7 +787,7 @@
           userStatusSection.className = 'user-status disconnected';
           statusIndicator.className = 'status-indicator disconnected';
           userStatusText.textContent = 'Please connect to backend';
-          authToggleBtn.textContent = 'Login';
+          authToggleBtn.textContent = 'Connect';
           authToggleBtn.className = 'auth-button';
           authSection.style.display = 'none';
           
@@ -641,10 +817,10 @@
       
       function handleAuthToggle() {
         if (isAuthenticated) {
-          // User is authenticated, so logout
+          // User is authenticated, so end session
           logout();
         } else {
-          // User is not authenticated, so show login options
+          // User is not authenticated, so show connection options
           showAuthSection();
         }
       }
@@ -656,6 +832,7 @@
       function hideAuthMessages() {
         document.getElementById('auth-error').style.display = 'none';
         document.getElementById('auth-success').style.display = 'none';
+        document.getElementById('auth-url-section').style.display = 'none';
       }
       
       function showAuthError(message) {
@@ -670,6 +847,33 @@
         successDiv.textContent = message;
         successDiv.style.display = 'block';
         document.getElementById('auth-error').style.display = 'none';
+        document.getElementById('auth-url-section').style.display = 'none';
+      }
+      
+      function showAuthURL(url) {
+        hideAuthMessages();
+        const urlSection = document.getElementById('auth-url-section');
+        const urlDisplay = document.getElementById('auth-url-display');
+        urlDisplay.value = url;
+        urlSection.style.display = 'block';
+      }
+      
+      function copyAuthURL() {
+        const urlDisplay = document.getElementById('auth-url-display');
+        urlDisplay.select();
+        urlDisplay.setSelectionRange(0, 99999); // For mobile devices
+        
+        try {
+          document.execCommand('copy');
+          const copyButton = document.querySelector('.copy-button');
+          const originalText = copyButton.textContent;
+          copyButton.textContent = 'Copied!';
+          setTimeout(() => {
+            copyButton.textContent = originalText;
+          }, 2000);
+        } catch (err) {
+          console.error('Failed to copy URL:', err);
+        }
       }
       
       function showComments(commentsData, frameName, isCanvas = false) {
@@ -683,11 +887,13 @@
         if (isCanvas) {
           // Show canvas comments state
           showState('canvas-comments');
-          document.getElementById('canvas-info').textContent = `Canvas: ${comments.length} comments`;
+          const commentWord = comments.length === 1 ? 'comment' : 'comments';
+          document.getElementById('canvas-info').textContent = `Canvas: ${comments.length} ${commentWord}`;
         } else {
           // Show frame comments state
           showState('frame-comments');
-          document.getElementById('frame-info').textContent = `${frameName}: ${comments.length} comments`;
+          const commentWord = comments.length === 1 ? 'comment' : 'comments';
+          document.getElementById('frame-info').textContent = `${frameName}: ${comments.length} ${commentWord}`;
         }
         
         if (comments.length === 0) {
@@ -705,7 +911,7 @@
             
             const resolvedBadge = comment.resolved ? 
               '<span style="color: #4caf50; font-weight: bold;">✓ Resolved</span>' : 
-              '<span style="color: #ff9800; font-weight: bold;">○ Active</span>';
+              '';
             
             item.innerHTML = `
               <div class="comment-text">${escapeHtml(comment.text)}</div>
@@ -763,22 +969,62 @@
         parent.postMessage({ pluginMessage: { type: 'logout' } }, '*');
         updateAuthUI(false);
         document.getElementById('session-token').value = '';
+        updateConnectButtonState(); // Update button state after clearing input
       }
+      
+      // Track pending sync operations for button states
+      let pendingSyncOperations = new Map();
       
       function syncCanvasComments() {
         if (!isAuthenticated) {
-          return;
+          return Promise.reject('Not authenticated');
         }
         
-        parent.postMessage({ pluginMessage: { type: 'sync-canvas-comments' } }, '*');
+        return new Promise((resolve, reject) => {
+          const operationId = 'canvas-sync-' + Date.now();
+          pendingSyncOperations.set(operationId, { resolve, reject });
+          
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'sync-canvas-comments',
+              operationId: operationId
+            } 
+          }, '*');
+          
+          // Timeout after 30 seconds
+          setTimeout(() => {
+            if (pendingSyncOperations.has(operationId)) {
+              pendingSyncOperations.delete(operationId);
+              reject('Sync timeout');
+            }
+          }, 30000);
+        });
       }
       
       function syncFrameComments() {
         if (!isAuthenticated) {
-          return;
+          return Promise.reject('Not authenticated');
         }
         
-        parent.postMessage({ pluginMessage: { type: 'sync-frame-comments' } }, '*');
+        return new Promise((resolve, reject) => {
+          const operationId = 'frame-sync-' + Date.now();
+          pendingSyncOperations.set(operationId, { resolve, reject });
+          
+          parent.postMessage({ 
+            pluginMessage: { 
+              type: 'sync-frame-comments',
+              operationId: operationId
+            } 
+          }, '*');
+          
+          // Timeout after 30 seconds
+          setTimeout(() => {
+            if (pendingSyncOperations.has(operationId)) {
+              pendingSyncOperations.delete(operationId);
+              reject('Sync timeout');
+            }
+          }, 30000);
+        });
       }
       
       function addCanvasCommentsToCanvas() {
@@ -828,6 +1074,7 @@
           updateAuthUI(true, user);
           showAuthSuccess(`Successfully connected as ${user.handle || user.name}`);
           document.getElementById('session-token').value = '';
+          updateConnectButtonState(); // Update button state after clearing input
           // Hide auth section after successful authentication
           document.getElementById('auth-section').style.display = 'none';
         } else if (type === 'auth-error') {
@@ -836,13 +1083,25 @@
         } else if (type === 'logged-out') {
           updateAuthUI(false);
         } else if (type === 'sync-success') {
-          // Sync success - no status message needed
+          // Resolve the pending sync operation
+          const operationId = event.data.pluginMessage.operationId;
+          if (operationId && pendingSyncOperations.has(operationId)) {
+            const { resolve } = pendingSyncOperations.get(operationId);
+            pendingSyncOperations.delete(operationId);
+            resolve();
+          }
         } else if (type === 'sync-error') {
-          // Sync error - no status message needed
+          // Reject the pending sync operation
+          const operationId = event.data.pluginMessage.operationId;
+          if (operationId && pendingSyncOperations.has(operationId)) {
+            const { reject } = pendingSyncOperations.get(operationId);
+            pendingSyncOperations.delete(operationId);
+            reject(event.data.pluginMessage.message || 'Sync failed');
+          }
         } else if (type === 'open-url') {
           // Plugin requested to open URL (for OAuth flow)
-          console.log('Open URL:', event.data.pluginMessage.url);
-          showAuthSuccess('Browser authentication started. Check browser window.');
+          const url = event.data.pluginMessage.url;
+          showAuthURL(url);
         } else if (type === 'error') {
           showStatus(event.data.pluginMessage.message, 'error');
         }
@@ -856,14 +1115,82 @@
       }
       
       // Setup event listeners
-      document.getElementById('collate-button').addEventListener('click', collateComments);
+      console.log('Setting up event listeners...');
       
-      // Allow Enter key to submit token
-      document.getElementById('session-token').addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-          authenticateWithToken();
+      // Main collate button (if it exists)
+      const collateButton = document.getElementById('collate-button');
+      if (collateButton) {
+        collateButton.addEventListener('click', collateComments);
+      }
+      
+      // Sync button event listeners with loading states
+      const syncCanvasBtn = document.getElementById('sync-canvas-btn');
+      if (syncCanvasBtn) {
+        syncCanvasBtn.addEventListener('click', function() {
+          handleSyncButtonSequence(this, syncCanvasComments);
+        });
+      }
+      
+      const resyncCanvasBtn = document.getElementById('resync-canvas-btn');
+      if (resyncCanvasBtn) {
+        resyncCanvasBtn.addEventListener('click', function() {
+          handleSyncButtonSequence(this, syncCanvasComments);
+        });
+      }
+      
+      const resyncFrameBtn = document.getElementById('resync-frame-btn');
+      if (resyncFrameBtn) {
+        resyncFrameBtn.addEventListener('click', function() {
+          handleSyncButtonSequence(this, syncFrameComments);
+        });
+      }
+      
+      // Handle session token input changes
+      const sessionTokenInput = document.getElementById('session-token');
+      const authenticateBtn = document.getElementById('authenticate-btn');
+      
+      console.log('Session token input found:', !!sessionTokenInput);
+      console.log('Authenticate button found:', !!authenticateBtn);
+      
+      function updateConnectButtonState() {
+        const sessionTokenInput = document.getElementById('session-token');
+        const authenticateBtn = document.getElementById('authenticate-btn');
+        const hasToken = sessionTokenInput && sessionTokenInput.value.trim().length > 0;
+        console.log('Updating button state - has token:', hasToken, 'value:', sessionTokenInput?.value);
+        if (authenticateBtn) {
+          authenticateBtn.disabled = !hasToken;
+          console.log('Connect button disabled state:', authenticateBtn.disabled);
         }
-      });
+      }
+      
+      // Make function globally accessible
+      window.updateConnectButtonState = updateConnectButtonState;
+      
+      if (sessionTokenInput && authenticateBtn) {
+        sessionTokenInput.addEventListener('input', function(e) {
+          console.log('Input event triggered, value:', e.target.value);
+          updateConnectButtonState();
+        });
+        
+        sessionTokenInput.addEventListener('paste', function(e) {
+          console.log('Paste event triggered');
+          // Slight delay to ensure paste content is processed
+          setTimeout(updateConnectButtonState, 10);
+        });
+        
+        // Allow Enter key to submit token
+        sessionTokenInput.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter' && !authenticateBtn.disabled) {
+            authenticateWithToken();
+          }
+        });
+        
+        // Initial state check
+        updateConnectButtonState();
+        console.log('Event listeners set up successfully');
+      } else {
+        console.error('Session token input or authenticate button not found');
+      }
     </script>
   </body>
 </html> 
