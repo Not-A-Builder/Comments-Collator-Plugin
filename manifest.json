@@ -8,6 +8,7 @@
   "networkAccess": {
     "allowedDomains": [
       "https://api.figma.com",
+      "https://*.railway.app",
       "https://*.herokuapp.com",
       "https://*.ngrok.io"
     ],
