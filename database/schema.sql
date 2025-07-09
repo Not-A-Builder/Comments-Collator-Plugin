@@ -93,6 +93,15 @@ CREATE TABLE IF NOT EXISTS plugin_sessions (
     FOREIGN KEY (figma_file_key) REFERENCES files (figma_file_key) ON DELETE CASCADE
 );
 
+-- OAuth states table for secure state parameter handling
+CREATE TABLE IF NOT EXISTS oauth_states (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    state TEXT UNIQUE NOT NULL,
+    file_key TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_comments_file_key ON comments (figma_file_key);
 CREATE INDEX IF NOT EXISTS idx_comments_node_id ON comments (node_id);
@@ -103,6 +112,8 @@ CREATE INDEX IF NOT EXISTS idx_webhook_events_file_key ON webhook_events (figma_
 CREATE INDEX IF NOT EXISTS idx_file_permissions_user_file ON file_permissions (user_id, figma_file_key);
 CREATE INDEX IF NOT EXISTS idx_plugin_sessions_user ON plugin_sessions (user_id);
 CREATE INDEX IF NOT EXISTS idx_plugin_sessions_token ON plugin_sessions (session_token);
+CREATE INDEX IF NOT EXISTS idx_oauth_states_state ON oauth_states (state);
+CREATE INDEX IF NOT EXISTS idx_oauth_states_expires ON oauth_states (expires_at);
 
 -- Triggers for updating timestamps
 CREATE TRIGGER IF NOT EXISTS update_users_timestamp 

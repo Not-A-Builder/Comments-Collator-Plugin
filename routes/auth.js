@@ -18,29 +18,25 @@ function generateState() {
     return crypto.randomBytes(32).toString('hex');
 }
 
-// Store state temporarily (in production, use Redis or database)
-const stateStore = new Map();
+// Store state in database for persistence across server restarts
 
 // Initiate OAuth flow
 router.get('/figma', (req, res) => {
     const state = generateState();
     const fileKey = req.query.file_key; // Optional file key for context
     
-    // Store state with optional context (extended to 30 minutes)
-    stateStore.set(state, { 
-        timestamp: Date.now(),
-        fileKey: fileKey 
-    });
+    // Store state in database with 30 minute expiration
+    const expiresAt = new Date(Date.now() + (30 * 60 * 1000));
+    db.run(
+        `INSERT OR REPLACE INTO oauth_states (state, file_key, expires_at) 
+         VALUES (?, ?, ?)`,
+        [state, fileKey, expiresAt.toISOString()]
+    );
     
-    console.log(`OAuth initiated: state=${state}, stored states: ${stateStore.size}`);
+    console.log(`OAuth initiated: state=${state}, expires at: ${expiresAt}`);
     
-    // Clean up old states (older than 30 minutes)
-    for (const [key, value] of stateStore.entries()) {
-        if (Date.now() - value.timestamp > 30 * 60 * 1000) {
-            stateStore.delete(key);
-            console.log(`Cleaned up expired state: ${key}`);
-        }
-    }
+    // Clean up expired states
+    db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
     
     const params = new URLSearchParams({
         client_id: process.env.FIGMA_CLIENT_ID,
@@ -58,7 +54,7 @@ router.get('/figma', (req, res) => {
 router.get('/figma/callback', async (req, res) => {
     const { code, state } = req.query;
     
-    console.log(`OAuth callback received: code=${code ? 'present' : 'missing'}, state=${state}, stored states: ${stateStore.size}`);
+    console.log(`OAuth callback received: code=${code ? 'present' : 'missing'}, state=${state}`);
     
     if (!code || !state) {
         console.log('Missing code or state parameter');
@@ -76,10 +72,17 @@ router.get('/figma/callback', async (req, res) => {
         `);
     }
     
-    // Verify state parameter
-    const storedState = stateStore.get(state);
+    // Clean up expired states first
+    db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
+    
+    // Verify state parameter from database
+    const storedState = db.get(
+        `SELECT * FROM oauth_states WHERE state = ? AND expires_at > datetime('now')`,
+        [state]
+    );
+    
     if (!storedState) {
-        console.log(`Invalid state parameter: ${state}, available states: ${Array.from(stateStore.keys()).join(', ')}`);
+        console.log(`Invalid or expired state parameter: ${state}`);
         return res.status(400).send(`
             <!DOCTYPE html>
             <html>
@@ -94,25 +97,8 @@ router.get('/figma/callback', async (req, res) => {
         `);
     }
     
-    // Check if state is too old (more than 30 minutes)
-    const stateAge = Date.now() - storedState.timestamp;
-    if (stateAge > 30 * 60 * 1000) {
-        console.log(`State parameter expired: ${state}, age: ${Math.floor(stateAge / 1000)}s`);
-        stateStore.delete(state);
-        return res.status(400).send(`
-            <!DOCTYPE html>
-            <html>
-            <head><title>Authentication Error</title></head>
-            <body>
-                <h1>Authentication Error</h1>
-                <p>State parameter has expired (older than 30 minutes).</p>
-                <a href="/auth/figma">Start a fresh OAuth flow</a>
-            </body>
-            </html>
-        `);
-    }
-    
-    stateStore.delete(state);
+    // Remove the used state
+    db.run(`DELETE FROM oauth_states WHERE state = ?`, [state]);
     console.log(`State validated and removed: ${state}`);
     
     try {
@@ -168,7 +154,7 @@ router.get('/figma/callback', async (req, res) => {
         const sessionToken = crypto.randomBytes(32).toString('hex');
         db.createPluginSession({
             userId: user.id,
-            figmaFileKey: storedState.fileKey || null,
+            figmaFileKey: storedState.file_key || null,
             sessionToken: sessionToken
         });
         
