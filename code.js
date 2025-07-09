@@ -1,5 +1,5 @@
 // Comments Collator Plugin - Real Backend Integration
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'https://comments-collator-plugin-production.up.railway.app';
 
 // Store session state
 let sessionData = {
