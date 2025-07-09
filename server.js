@@ -142,11 +142,12 @@ app.listen(port, '0.0.0.0', () => {
     console.log(`📨 Webhook endpoint: http://localhost:${port}/webhooks/figma`);
     console.log(`📡 API endpoint: http://localhost:${port}/api`);
     console.log(`💾 Database: ${process.env.DATABASE_URL || './database/comments.db'}`);
+    console.log(`🔧 Using better-sqlite3 for improved compatibility`);
     
     // Test database connection
     try {
         const testResult = db.get('SELECT 1 as test');
-        console.log('✅ Database connection test successful');
+        console.log('✅ Database connection test successful (better-sqlite3)');
     } catch (error) {
         console.error('❌ Database connection failed:', error.message);
     }
