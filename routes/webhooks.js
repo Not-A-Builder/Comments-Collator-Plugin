@@ -49,7 +49,7 @@ router.post('/figma', verifyFigmaSignature, async (req, res) => {
         });
         
         // Store webhook event for debugging/audit
-        await db.createWebhookEvent({
+        db.createWebhookEvent({
             eventType: event.event_type,
             figmaFileKey: event.file_key,
             eventData: JSON.stringify(event)
@@ -75,7 +75,7 @@ router.post('/figma', verifyFigmaSignature, async (req, res) => {
         }
         
         // Mark event as processed
-        await db.markWebhookEventProcessed(event.file_key, event.event_type, event.timestamp);
+        db.markWebhookEventProcessed(event.file_key, event.event_type, event.timestamp);
         
         // Respond with 200 to acknowledge receipt
         res.status(200).json({ 
@@ -98,11 +98,11 @@ async function handleFileCommentEvent(event) {
     
     try {
         // Ensure we have file information
-        let file = await db.getFileByKey(file_key);
+        let file = db.getFileByKey(file_key);
         if (!file) {
             // Fetch file info from Figma API and store it
             const fileInfo = await figmaApi.getFileInfo(file_key);
-            file = await db.createFile({
+            file = db.createFile({
                 figmaFileKey: file_key,
                 fileName: fileInfo.name,
                 teamId: fileInfo.team_id
@@ -116,9 +116,9 @@ async function handleFileCommentEvent(event) {
         
         // If this is a comment deletion or resolution, handle accordingly
         if (event.action === 'DELETE') {
-            await db.deleteComment(comment.id);
+            db.deleteComment(comment.id);
         } else if (event.action === 'RESOLVE') {
-            await db.resolveComment(comment.id, triggered_by.id);
+            db.resolveComment(comment.id, triggered_by.id);
         }
         
         console.log(`Processed comment event for file ${file_key}`);
@@ -136,7 +136,7 @@ async function processComment(fileKey, comment, triggeredBy) {
         let nodeName = comment.client_meta?.node_id ? await getNodeName(fileKey, comment.client_meta.node_id) : null;
         
         // Store or update comment in database
-        await db.upsertComment({
+        db.upsertComment({
             figmaCommentId: comment.id,
             figmaFileKey: fileKey,
             nodeId: comment.client_meta?.node_id || null,
@@ -176,7 +176,7 @@ async function handleFileUpdateEvent(event) {
     
     try {
         // Update file last_synced_at timestamp
-        await db.updateFileLastSynced(file_key);
+        db.updateFileLastSynced(file_key);
         
         // Optionally re-sync comments if needed
         console.log(`File ${file_key} updated by ${triggered_by?.handle || 'unknown'}`);
@@ -193,7 +193,7 @@ async function handleFileDeleteEvent(event) {
     
     try {
         // Clean up file and associated data
-        await db.deleteFile(file_key);
+        db.deleteFile(file_key);
         console.log(`File ${file_key} deleted, cleaned up associated data`);
         
     } catch (error) {
@@ -222,7 +222,7 @@ router.post('/register', [
         // Register webhook with Figma (this would be implemented based on Figma's webhook API)
         // For now, we'll just store the registration intent
         
-        await db.createWebhookRegistration({
+        db.createWebhookRegistration({
             figmaFileKey: file_key,
             eventType: event_type,
             endpoint: endpoint,

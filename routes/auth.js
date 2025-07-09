@@ -142,7 +142,7 @@ router.get('/figma/callback', async (req, res) => {
         
         // Store user in database
         const expiresAt = new Date(Date.now() + (expires_in * 1000));
-        const user = await db.upsertUser({
+        const user = db.upsertUser({
             figmaUserId: userData.id,
             email: userData.email,
             name: userData.name,
@@ -166,7 +166,7 @@ router.get('/figma/callback', async (req, res) => {
         
         // Create session for plugin
         const sessionToken = crypto.randomBytes(32).toString('hex');
-        await db.createPluginSession({
+        db.createPluginSession({
             userId: user.id,
             figmaFileKey: storedState.fileKey || null,
             sessionToken: sessionToken
@@ -265,7 +265,7 @@ router.post('/verify', [
     
     try {
         const { session_token } = req.body;
-        const session = await db.getPluginSessionByToken(session_token);
+        const session = db.getPluginSessionByToken(session_token);
         
         if (!session) {
             return res.status(401).json({
@@ -274,7 +274,7 @@ router.post('/verify', [
         }
         
         // Update last activity
-        await db.updateSessionActivity(session_token);
+        db.updateSessionActivity(session_token);
         
         res.json({
             success: true,
@@ -321,7 +321,7 @@ router.post('/refresh', [
         
         // Update user tokens in database
         const expiresAt = new Date(Date.now() + (expires_in * 1000));
-        await db.updateUserTokens(refresh_token, {
+        db.updateUserTokens(refresh_token, {
             accessToken: access_token,
             refreshToken: new_refresh_token || refresh_token,
             tokenExpiresAt: expiresAt
@@ -365,11 +365,11 @@ router.get('/check-session', async (req, res) => {
             LIMIT 1
         `;
         
-        const session = await db.get(sql, [file_key]);
+        const session = db.get(sql, [file_key]);
         
         if (session) {
             // Update session activity
-            await db.updateSessionActivity(session.session_token);
+            db.updateSessionActivity(session.session_token);
             
             console.log(`Auto-detected existing session for ${session.handle}`);
             

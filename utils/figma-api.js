@@ -10,7 +10,7 @@ class FigmaAPI {
 
     // Create authenticated axios instance for a user
     async createAuthenticatedClient(userId) {
-        const user = await db.getUserById(userId);
+        const user = db.getUserById(userId);
         if (!user) {
             throw new Error('User not found');
         }
@@ -19,7 +19,7 @@ class FigmaAPI {
         if (user.token_expires_at && new Date(user.token_expires_at) <= new Date()) {
             await this.refreshUserToken(user);
             // Refetch user with updated token
-            const refreshedUser = await db.getUserById(userId);
+            const refreshedUser = db.getUserById(userId);
             user.access_token = refreshedUser.access_token;
         }
 
@@ -47,7 +47,7 @@ class FigmaAPI {
             const { access_token, refresh_token: new_refresh_token, expires_in } = response.data;
             const expiresAt = new Date(Date.now() + (expires_in * 1000));
 
-            await db.updateUserTokens(user.refresh_token, {
+            db.updateUserTokens(user.refresh_token, {
                 accessToken: access_token,
                 refreshToken: new_refresh_token || user.refresh_token,
                 tokenExpiresAt: expiresAt
@@ -70,7 +70,7 @@ class FigmaAPI {
                 client = await this.createAuthenticatedClient(userId);
             } else {
                 // Use any available user token for file info
-                const user = await db.getAnyValidUser();
+                const user = db.getAnyValidUser();
                 if (!user) {
                     throw new Error('No authenticated users available');
                 }
@@ -103,7 +103,7 @@ class FigmaAPI {
             if (userId) {
                 client = await this.createAuthenticatedClient(userId);
             } else {
-                const user = await db.getAnyValidUser();
+                const user = db.getAnyValidUser();
                 if (!user) {
                     throw new Error('No authenticated users available');
                 }
@@ -253,7 +253,7 @@ class FigmaAPI {
             console.log(`Starting comment sync for file ${fileKey}`);
             
             // Get current comments from database
-            const existingComments = await db.getCommentsByFileKey(fileKey);
+            const existingComments = db.getCommentsByFileKey(fileKey);
             const existingCommentIds = new Set(existingComments.map(c => c.figma_comment_id));
             
             // Get comments from Figma API
@@ -262,7 +262,7 @@ class FigmaAPI {
             
             // Store each comment in database
             for (const comment of comments) {
-                await db.upsertComment({
+                db.upsertComment({
                     figmaCommentId: comment.id,
                     figmaFileKey: fileKey,
                     nodeId: comment.node_id,
@@ -285,13 +285,13 @@ class FigmaAPI {
                 
             let deletedCount = 0;
             for (const commentId of commentsToDelete) {
-                await db.deleteComment(commentId);
+                db.deleteComment(commentId);
                 deletedCount++;
                 console.log(`Deleted comment ${commentId} (no longer exists in Figma)`);
             }
 
             // Update file last synced timestamp
-            await db.updateFileLastSynced(fileKey);
+            db.updateFileLastSynced(fileKey);
             
             const syncCommentWord = comments.length === 1 ? 'comment' : 'comments';
     const deletedCommentWord = deletedCount === 1 ? 'comment' : 'comments';

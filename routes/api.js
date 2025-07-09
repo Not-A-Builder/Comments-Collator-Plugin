@@ -17,7 +17,7 @@ async function authenticateSession(req, res, next) {
     }
     
     try {
-        const session = await db.getPluginSessionByToken(sessionToken);
+        const session = db.getPluginSessionByToken(sessionToken);
         if (!session) {
             return res.status(401).json({
                 error: 'Invalid or expired session token'
@@ -25,7 +25,7 @@ async function authenticateSession(req, res, next) {
         }
         
         // Update session activity
-        await db.updateSessionActivity(sessionToken);
+        db.updateSessionActivity(sessionToken);
         
         req.session = session;
         req.userId = session.user_id;
@@ -56,7 +56,7 @@ router.get('/user/profile', authenticateSession, (req, res) => {
 // Get user's accessible files
 router.get('/user/files', authenticateSession, async (req, res) => {
     try {
-        const permissions = await db.getUserFilePermissions(req.userId);
+        const permissions = db.getUserFilePermissions(req.userId);
         
         res.json({
             success: true,
@@ -82,7 +82,7 @@ router.get('/files/:fileKey', authenticateSession, async (req, res) => {
         const { fileKey } = req.params;
         
         // Check user permissions (auto-grant read if none exist)
-        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        const permission = db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
@@ -90,32 +90,32 @@ router.get('/files/:fileKey', authenticateSession, async (req, res) => {
         }
         
         // Get file info from database
-        let file = await db.getFileByKey(fileKey);
+        let file = db.getFileByKey(fileKey);
         
-        // If not in database, fetch from Figma API
-        if (!file) {
-            const fileInfo = await figmaApi.getFileInfo(fileKey, req.userId);
-            file = await db.createFile({
-                figmaFileKey: fileKey,
-                fileName: fileInfo.name,
-                teamId: fileInfo.team_id,
-                ownerUserId: req.userId
-            });
-        } else if (file.file_name === 'Unknown File') {
-            // Try to update placeholder file with real info from Figma API
-            try {
+                    // If not in database, fetch from Figma API
+            if (!file) {
                 const fileInfo = await figmaApi.getFileInfo(fileKey, req.userId);
-                file = await db.createFile({
+                file = db.createFile({
                     figmaFileKey: fileKey,
                     fileName: fileInfo.name,
                     teamId: fileInfo.team_id,
                     ownerUserId: req.userId
                 });
-            } catch (error) {
-                console.log(`Could not fetch file info from Figma API: ${error.message}`);
-                // Continue with placeholder file info
+            } else if (file.file_name === 'Unknown File') {
+                // Try to update placeholder file with real info from Figma API
+                try {
+                    const fileInfo = await figmaApi.getFileInfo(fileKey, req.userId);
+                    file = db.createFile({
+                        figmaFileKey: fileKey,
+                        fileName: fileInfo.name,
+                        teamId: fileInfo.team_id,
+                        ownerUserId: req.userId
+                    });
+                } catch (error) {
+                    console.log(`Could not fetch file info from Figma API: ${error.message}`);
+                    // Continue with placeholder file info
+                }
             }
-        }
         
         res.json({
             success: true,
@@ -142,7 +142,7 @@ router.post('/files/:fileKey/sync', authenticateSession, async (req, res) => {
         const { fileKey } = req.params;
         
         // Check user permissions (auto-grant read if none exist)
-        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        const permission = db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
@@ -185,7 +185,7 @@ router.put('/session/node', [
         const { nodeId, fileKey } = req.body;
         
         // Update session with current node
-        await db.updateSessionNodeId(req.session.session_token, nodeId);
+        db.updateSessionNodeId(req.session.session_token, nodeId);
         
         res.json({
             success: true,
@@ -208,14 +208,14 @@ router.get('/files/:fileKey/stats', authenticateSession, async (req, res) => {
         const { fileKey } = req.params;
         
         // Check user permissions (auto-grant read if none exist)
-        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        const permission = db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
             });
         }
         
-        const stats = await db.getCommentStats(fileKey);
+        const stats = db.getCommentStats(fileKey);
         
         res.json({
             success: true,
@@ -254,7 +254,7 @@ router.post('/files/:fileKey/permissions', [
         const { userHandle, permissionLevel } = req.body;
         
         // Check if current user has admin permission
-        const currentPermission = await db.checkFilePermission(req.userId, fileKey);
+        const currentPermission = db.checkFilePermission(req.userId, fileKey);
         if (currentPermission !== 'admin') {
             return res.status(403).json({
                 error: 'Admin permission required'
@@ -262,7 +262,7 @@ router.post('/files/:fileKey/permissions', [
         }
         
         // Find target user by handle
-        const targetUser = await db.getUserByHandle(userHandle);
+        const targetUser = db.getUserByHandle(userHandle);
         if (!targetUser) {
             return res.status(404).json({
                 error: 'User not found'
@@ -270,7 +270,7 @@ router.post('/files/:fileKey/permissions', [
         }
         
         // Grant permission
-        await db.grantFilePermission(targetUser.id, fileKey, permissionLevel, req.userId);
+        db.grantFilePermission(targetUser.id, fileKey, permissionLevel, req.userId);
         
         res.json({
             success: true,

@@ -17,14 +17,14 @@ async function authenticateSession(req, res, next) {
     }
     
     try {
-        const session = await db.getPluginSessionByToken(sessionToken);
+        const session = db.getPluginSessionByToken(sessionToken);
         if (!session) {
             return res.status(401).json({
                 error: 'Invalid or expired session token'
             });
         }
         
-        await db.updateSessionActivity(sessionToken);
+        db.updateSessionActivity(sessionToken);
         
         req.session = session;
         req.userId = session.user_id;
@@ -48,7 +48,7 @@ router.get('/:fileKey', [
         const { nodeId } = req.query;
         
         // Check user permissions (auto-grant read if none exist)
-        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        const permission = db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
@@ -58,10 +58,10 @@ router.get('/:fileKey', [
         let comments;
         if (nodeId) {
             // Get comments for specific node
-            comments = await db.getCommentsByNodeId(fileKey, nodeId);
+            comments = db.getCommentsByNodeId(fileKey, nodeId);
         } else {
             // Get all comments for file
-            comments = await db.getCommentsByFileKey(fileKey);
+            comments = db.getCommentsByFileKey(fileKey);
         }
         
         // Format comments for response
@@ -108,7 +108,7 @@ router.get('/:fileKey/canvas', authenticateSession, async (req, res) => {
         const { fileKey } = req.params;
         
         // Check user permissions (auto-grant read if none exist)
-        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        const permission = db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
@@ -116,7 +116,7 @@ router.get('/:fileKey/canvas', authenticateSession, async (req, res) => {
         }
         
         // Get canvas-level comments only
-        const comments = await db.getCanvasComments(fileKey);
+        const comments = db.getCanvasComments(fileKey);
         
         // Format comments for response
         const formattedComments = comments.map(comment => ({
@@ -177,7 +177,7 @@ router.post('/:fileKey', [
         const { message, nodeId, parentId, position } = req.body;
         
         // Check user permissions (auto-grant read if none exist)
-        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        const permission = db.ensureFilePermission(req.userId, fileKey);
         if (!permission || permission === 'read') {
             return res.status(403).json({
                 error: 'Write permission required to post comments'
@@ -195,7 +195,7 @@ router.post('/:fileKey', [
         const figmaComment = await figmaApi.postComment(fileKey, req.userId, commentData);
         
         // Store comment in database
-        await db.upsertComment({
+        db.upsertComment({
             figmaCommentId: figmaComment.id,
             figmaFileKey: fileKey,
             nodeId: nodeId,
@@ -242,7 +242,7 @@ router.put('/:fileKey/:commentId/resolve', authenticateSession, async (req, res)
         const { fileKey, commentId } = req.params;
         
         // Check user permissions (auto-grant read if none exist)
-        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        const permission = db.ensureFilePermission(req.userId, fileKey);
         if (!permission || permission === 'read') {
             return res.status(403).json({
                 error: 'Write permission required to resolve comments'
@@ -253,7 +253,7 @@ router.put('/:fileKey/:commentId/resolve', authenticateSession, async (req, res)
         await figmaApi.resolveComment(fileKey, commentId, req.userId);
         
         // Update comment in database
-        await db.resolveComment(commentId, req.userId);
+        db.resolveComment(commentId, req.userId);
         
         res.json({
             success: true,
@@ -278,7 +278,7 @@ router.put('/:fileKey/:commentId/unresolve', authenticateSession, async (req, re
         const { fileKey, commentId } = req.params;
         
         // Check user permissions (auto-grant read if none exist)
-        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        const permission = db.ensureFilePermission(req.userId, fileKey);
         if (!permission || permission === 'read') {
             return res.status(403).json({
                 error: 'Write permission required to unresolve comments'
@@ -286,7 +286,7 @@ router.put('/:fileKey/:commentId/unresolve', authenticateSession, async (req, re
         }
         
         // Unresolve comment in database
-        await db.unresolveComment(commentId);
+        db.unresolveComment(commentId);
         
         res.json({
             success: true,
@@ -311,7 +311,7 @@ router.get('/:fileKey/:commentId/thread', authenticateSession, async (req, res) 
         const { fileKey, commentId } = req.params;
         
         // Check user permissions (auto-grant read if none exist)
-        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        const permission = db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
@@ -319,7 +319,7 @@ router.get('/:fileKey/:commentId/thread', authenticateSession, async (req, res) 
         }
         
         // Get parent comment
-        const parentComment = await db.get(
+        const parentComment = db.get(
             'SELECT * FROM comments WHERE figma_comment_id = ? AND figma_file_key = ?',
             [commentId, fileKey]
         );
@@ -331,7 +331,7 @@ router.get('/:fileKey/:commentId/thread', authenticateSession, async (req, res) 
         }
         
         // Get all replies to this comment
-        const replies = await db.all(
+        const replies = db.all(
             'SELECT * FROM comments WHERE parent_comment_id = ? AND figma_file_key = ? ORDER BY figma_created_at ASC',
             [commentId, fileKey]
         );
@@ -381,7 +381,7 @@ router.get('/:fileKey/summary', authenticateSession, async (req, res) => {
         const { nodeId } = req.query;
         
         // Check user permissions (auto-grant read if none exist)
-        const permission = await db.ensureFilePermission(req.userId, fileKey);
+        const permission = db.ensureFilePermission(req.userId, fileKey);
         if (!permission) {
             return res.status(403).json({
                 error: 'Access denied to this file'
@@ -390,9 +390,9 @@ router.get('/:fileKey/summary', authenticateSession, async (req, res) => {
         
         let comments;
         if (nodeId) {
-            comments = await db.getCommentsByNodeId(fileKey, nodeId);
+            comments = db.getCommentsByNodeId(fileKey, nodeId);
         } else {
-            comments = await db.getCommentsByFileKey(fileKey);
+            comments = db.getCommentsByFileKey(fileKey);
         }
         
         // Group comments by status and create summary
