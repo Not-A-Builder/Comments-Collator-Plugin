@@ -144,10 +144,18 @@ app.listen(port, '0.0.0.0', () => {
     console.log(`💾 Database: ${process.env.DATABASE_URL || './database/comments.db'}`);
     console.log(`🔧 Using better-sqlite3 for improved compatibility`);
     
-    // Test database connection
+    // Test database connection and oauth_states table
     try {
         const testResult = db.get('SELECT 1 as test');
         console.log('✅ Database connection test successful (better-sqlite3)');
+        
+        // Test oauth_states table
+        try {
+            db.get('SELECT COUNT(*) as count FROM oauth_states');
+            console.log('✅ OAuth states table exists and accessible');
+        } catch (tableError) {
+            console.warn('⚠️  OAuth states table not found - will use memory fallback:', tableError.message);
+        }
     } catch (error) {
         console.error('❌ Database connection failed:', error.message);
     }

@@ -18,25 +18,47 @@ function generateState() {
     return crypto.randomBytes(32).toString('hex');
 }
 
-// Store state in database for persistence across server restarts
+// Store state with fallback for database errors
+const stateStore = new Map(); // Fallback in-memory store
 
 // Initiate OAuth flow
 router.get('/figma', (req, res) => {
     const state = generateState();
     const fileKey = req.query.file_key; // Optional file key for context
     
-    // Store state in database with 30 minute expiration
+    // Try to store state in database with fallback to memory
     const expiresAt = new Date(Date.now() + (30 * 60 * 1000));
-    db.run(
-        `INSERT OR REPLACE INTO oauth_states (state, file_key, expires_at) 
-         VALUES (?, ?, ?)`,
-        [state, fileKey, expiresAt.toISOString()]
-    );
     
-    console.log(`OAuth initiated: state=${state}, expires at: ${expiresAt}`);
-    
-    // Clean up expired states
-    db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
+    try {
+        db.run(
+            `INSERT OR REPLACE INTO oauth_states (state, file_key, expires_at) 
+             VALUES (?, ?, ?)`,
+            [state, fileKey, expiresAt.toISOString()]
+        );
+        
+        console.log(`OAuth state stored in database: ${state}`);
+        
+        // Clean up expired states
+        db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
+        
+    } catch (error) {
+        console.warn('Failed to store state in database, using memory fallback:', error.message);
+        
+        // Fallback to in-memory storage
+        stateStore.set(state, {
+            file_key: fileKey,
+            expires_at: expiresAt
+        });
+        
+        // Clean up expired memory states
+        for (const [key, value] of stateStore.entries()) {
+            if (new Date() > new Date(value.expires_at)) {
+                stateStore.delete(key);
+            }
+        }
+        
+        console.log(`OAuth state stored in memory: ${state}`);
+    }
     
     const params = new URLSearchParams({
         client_id: process.env.FIGMA_CLIENT_ID,
@@ -72,15 +94,44 @@ router.get('/figma/callback', async (req, res) => {
         `);
     }
     
-    // Clean up expired states first
-    db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
+    // Try to verify state from database first, then fallback to memory
+    let storedState = null;
     
-    // Verify state parameter from database
-    const storedState = db.get(
-        `SELECT * FROM oauth_states WHERE state = ? AND expires_at > datetime('now')`,
-        [state]
-    );
+    try {
+        // Clean up expired states first
+        db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
+        
+        // Verify state parameter from database
+        storedState = db.get(
+            `SELECT * FROM oauth_states WHERE state = ? AND expires_at > datetime('now')`,
+            [state]
+        );
+        
+        if (storedState) {
+            // Remove the used state from database
+            db.run(`DELETE FROM oauth_states WHERE state = ?`, [state]);
+            console.log(`State validated from database and removed: ${state}`);
+        }
+        
+    } catch (error) {
+        console.warn('Failed to check state in database, checking memory fallback:', error.message);
+    }
     
+    // If not found in database, check memory fallback
+    if (!storedState) {
+        const memoryState = stateStore.get(state);
+        if (memoryState && new Date() <= new Date(memoryState.expires_at)) {
+            storedState = {
+                state: state,
+                file_key: memoryState.file_key,
+                expires_at: memoryState.expires_at
+            };
+            stateStore.delete(state);
+            console.log(`State validated from memory and removed: ${state}`);
+        }
+    }
+    
+    // If state not found in either database or memory
     if (!storedState) {
         console.log(`Invalid or expired state parameter: ${state}`);
         return res.status(400).send(`
@@ -96,10 +147,6 @@ router.get('/figma/callback', async (req, res) => {
             </html>
         `);
     }
-    
-    // Remove the used state
-    db.run(`DELETE FROM oauth_states WHERE state = ?`, [state]);
-    console.log(`State validated and removed: ${state}`);
     
     try {
         console.log('Exchanging authorization code for access token...');
