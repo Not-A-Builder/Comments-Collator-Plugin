@@ -1,6 +1,5 @@
 NODE_ENV=production
-PORT=3000
-DATABASE_URL=/tmp/comments.db
+DATABASE_URL=./comments.db
 FIGMA_CLIENT_ID=lvYA1DyZTSTBWLVSrlFt9g
 FIGMA_CLIENT_SECRET=Gh55qUWur5KPYmFCaRv1Oc6hMFWYGA
 FIGMA_REDIRECT_URI=https://comments-collator-plugin-production.up.railway.app/auth/figma/callback
