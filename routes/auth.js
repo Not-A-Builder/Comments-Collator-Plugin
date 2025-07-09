@@ -455,4 +455,52 @@ router.get('/check-session', async (req, res) => {
 
 
 
+// Test endpoint to verify oauth_states table functionality
+router.get('/test-oauth-storage', (req, res) => {
+    try {
+        const testState = 'test-state-' + Date.now();
+        const expiresAt = new Date(Date.now() + (30 * 60 * 1000));
+        
+        console.log('🧪 Testing OAuth state storage...');
+        
+        // Try to store a test state
+        db.run(
+            `INSERT INTO oauth_states (state, file_key, expires_at) VALUES (?, ?, ?)`,
+            [testState, 'test-file', expiresAt.toISOString()]
+        );
+        
+        console.log('✅ Test state stored successfully');
+        
+        // Try to retrieve it
+        const retrieved = db.get(`SELECT * FROM oauth_states WHERE state = ?`, [testState]);
+        console.log('📊 Retrieved state:', !!retrieved);
+        
+        // Clean up test data
+        db.run(`DELETE FROM oauth_states WHERE state = ?`, [testState]);
+        
+        // Check table status
+        const tableExists = db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='oauth_states'");
+        const totalStates = db.get("SELECT COUNT(*) as count FROM oauth_states");
+        
+        res.json({
+            success: true,
+            test: {
+                stateStored: true,
+                stateRetrieved: !!retrieved,
+                tableExists: !!tableExists,
+                totalStates: totalStates.count
+            },
+            timestamp: new Date().toISOString()
+        });
+        
+    } catch (error) {
+        console.error('❌ OAuth storage test failed:', error);
+        res.status(500).json({
+            error: 'OAuth storage test failed',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 module.exports = router; 
