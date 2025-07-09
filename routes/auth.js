@@ -36,13 +36,16 @@ router.get('/figma', (req, res) => {
             [state, fileKey, expiresAt.toISOString()]
         );
         
-        console.log(`OAuth state stored in database: ${state}`);
+        // Verify state was stored
+        const verifyState = db.get(`SELECT * FROM oauth_states WHERE state = ?`, [state]);
+        console.log(`✅ OAuth state stored in database: ${state}, verified: ${!!verifyState}`);
         
         // Clean up expired states
-        db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
+        const cleanupResult = db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
+        console.log(`🧹 Cleaned up ${cleanupResult.changes} expired states`);
         
     } catch (error) {
-        console.warn('Failed to store state in database, using memory fallback:', error.message);
+        console.warn('⚠️  Failed to store state in database, using memory fallback:', error.message);
         
         // Fallback to in-memory storage
         stateStore.set(state, {
@@ -57,7 +60,7 @@ router.get('/figma', (req, res) => {
             }
         }
         
-        console.log(`OAuth state stored in memory: ${state}`);
+        console.log(`💾 OAuth state stored in memory: ${state}, total memory states: ${stateStore.size}`);
     }
     
     const params = new URLSearchParams({
@@ -99,7 +102,12 @@ router.get('/figma/callback', async (req, res) => {
     
     try {
         // Clean up expired states first
-        db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
+        const cleanupResult = db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
+        console.log(`🧹 Callback: Cleaned up ${cleanupResult.changes} expired states`);
+        
+        // Count total states before lookup
+        const totalStates = db.get(`SELECT COUNT(*) as count FROM oauth_states`);
+        console.log(`📊 Total states in database: ${totalStates.count}`);
         
         // Verify state parameter from database
         storedState = db.get(
@@ -107,19 +115,24 @@ router.get('/figma/callback', async (req, res) => {
             [state]
         );
         
+        console.log(`🔍 Looking for state: ${state}, found in database: ${!!storedState}`);
+        
         if (storedState) {
             // Remove the used state from database
-            db.run(`DELETE FROM oauth_states WHERE state = ?`, [state]);
-            console.log(`State validated from database and removed: ${state}`);
+            const deleteResult = db.run(`DELETE FROM oauth_states WHERE state = ?`, [state]);
+            console.log(`✅ State validated from database and removed: ${state}, deleted: ${deleteResult.changes} rows`);
         }
         
     } catch (error) {
-        console.warn('Failed to check state in database, checking memory fallback:', error.message);
+        console.warn('⚠️  Failed to check state in database, checking memory fallback:', error.message);
     }
     
     // If not found in database, check memory fallback
     if (!storedState) {
+        console.log(`🔍 State not found in database, checking memory fallback. Memory has ${stateStore.size} states`);
         const memoryState = stateStore.get(state);
+        console.log(`🔍 Looking for state in memory: ${state}, found: ${!!memoryState}`);
+        
         if (memoryState && new Date() <= new Date(memoryState.expires_at)) {
             storedState = {
                 state: state,
@@ -127,13 +140,18 @@ router.get('/figma/callback', async (req, res) => {
                 expires_at: memoryState.expires_at
             };
             stateStore.delete(state);
-            console.log(`State validated from memory and removed: ${state}`);
+            console.log(`✅ State validated from memory and removed: ${state}, remaining memory states: ${stateStore.size}`);
+        } else if (memoryState) {
+            console.log(`⏰ State found in memory but expired: ${state}`);
         }
     }
     
     // If state not found in either database or memory
     if (!storedState) {
-        console.log(`Invalid or expired state parameter: ${state}`);
+        console.log(`❌ OAUTH ERROR: State parameter not found in database or memory: ${state}`);
+        console.log(`📊 Final state: Database states: ${db.get('SELECT COUNT(*) as count FROM oauth_states').count}, Memory states: ${stateStore.size}`);
+        console.log(`🔍 All memory state keys: [${Array.from(stateStore.keys()).join(', ')}]`);
+        
         return res.status(400).send(`
             <!DOCTYPE html>
             <html>
@@ -142,6 +160,7 @@ router.get('/figma/callback', async (req, res) => {
                 <h1>Authentication Error</h1>
                 <p>Invalid or expired state parameter.</p>
                 <p>This usually happens if you took too long to complete the OAuth flow or if you're using an old link.</p>
+                <p><strong>Debug info:</strong> State ${state} not found in storage</p>
                 <a href="/auth/figma">Try again with a fresh link</a>
             </body>
             </html>

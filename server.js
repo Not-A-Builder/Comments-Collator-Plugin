@@ -134,6 +134,40 @@ process.on('SIGINT', () => {
 const Database = require('./utils/database');
 const db = new Database();
 
+// Ensure OAuth states table exists at startup
+function ensureOAuthTable() {
+    try {
+        // Create oauth_states table if it doesn't exist
+        const createTableSQL = `
+            CREATE TABLE IF NOT EXISTS oauth_states (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                state TEXT UNIQUE NOT NULL,
+                file_key TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME NOT NULL
+            )
+        `;
+        
+        db.run(createTableSQL);
+        
+        // Create index if it doesn't exist
+        const createIndexSQL = `
+            CREATE INDEX IF NOT EXISTS idx_oauth_states_state ON oauth_states (state)
+        `;
+        
+        db.run(createIndexSQL);
+        
+        // Test the table works
+        const testResult = db.get("SELECT COUNT(*) as count FROM oauth_states");
+        console.log('✅ OAuth states table created/verified successfully');
+        return true;
+        
+    } catch (error) {
+        console.error('❌ Failed to create OAuth states table:', error.message);
+        return false;
+    }
+}
+
 // Start server
 app.listen(port, '0.0.0.0', () => {
     console.log(`🚀 Comments Collator Backend Server running on port ${port}`);
@@ -144,20 +178,22 @@ app.listen(port, '0.0.0.0', () => {
     console.log(`💾 Database: ${process.env.DATABASE_URL || './database/comments.db'}`);
     console.log(`🔧 Using better-sqlite3 for improved compatibility`);
     
-    // Test database connection and oauth_states table
+    // Test database connection
     try {
         const testResult = db.get('SELECT 1 as test');
         console.log('✅ Database connection test successful (better-sqlite3)');
         
-        // Test oauth_states table
-        try {
-            db.get('SELECT COUNT(*) as count FROM oauth_states');
-            console.log('✅ OAuth states table exists and accessible');
-        } catch (tableError) {
-            console.warn('⚠️  OAuth states table not found - will use memory fallback:', tableError.message);
+        // Ensure OAuth states table exists
+        const oauthTableExists = ensureOAuthTable();
+        if (oauthTableExists) {
+            console.log('✅ OAuth states table ready for use');
+        } else {
+            console.warn('⚠️  OAuth states table creation failed - using memory fallback');
         }
+        
     } catch (error) {
         console.error('❌ Database connection failed:', error.message);
+        console.warn('⚠️  Using memory-only fallback for OAuth states');
     }
 });
 
