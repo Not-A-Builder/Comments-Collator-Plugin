@@ -9,8 +9,7 @@
     "test": "jest",
     "migrate": "node scripts/migrate.js",
     "setup": "./start-backend.sh",
-    "build": "npm rebuild sqlite3 && npm run migrate",
-    "postinstall": "npm rebuild sqlite3"
+    "build": "npm run migrate"
   },
   "keywords": [
     "figma",
@@ -28,7 +27,7 @@
     "helmet": "^7.1.0",
     "compression": "^1.7.4",
     "express-rate-limit": "^7.1.5",
-    "sqlite3": "^5.1.6",
+    "better-sqlite3": "^8.7.0",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
     "axios": "^1.6.2",

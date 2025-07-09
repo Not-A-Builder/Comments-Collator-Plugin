@@ -1,7 +1,8 @@
 const express = require('express');
 const crypto = require('crypto');
 const { body, validationResult } = require('express-validator');
-const db = require('../utils/database');
+const Database = require('../utils/database');
+const db = new Database();
 const figmaApi = require('../utils/figma-api');
 
 const router = express.Router();

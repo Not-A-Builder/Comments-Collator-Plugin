@@ -1,5 +1,6 @@
 const axios = require('axios');
-const db = require('./database');
+const Database = require('./database');
+const db = new Database();
 
 class FigmaAPI {
     constructor() {

@@ -3,7 +3,8 @@ const axios = require('axios');
 const jwt = require('jsonwebtoken');
 const { body, validationResult } = require('express-validator');
 const crypto = require('crypto');
-const db = require('../utils/database');
+const Database = require('../utils/database');
+const db = new Database();
 
 const router = express.Router();
 

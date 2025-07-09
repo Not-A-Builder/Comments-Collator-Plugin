@@ -1,4 +1,4 @@
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
@@ -20,13 +20,14 @@ try {
 console.log(`Using database path: ${dbPath}`);
 
 // Connect to database
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('Error opening database:', err.message);
-        process.exit(1);
-    }
+let db;
+try {
+    db = new Database(dbPath);
     console.log('Connected to SQLite database');
-});
+} catch (err) {
+    console.error('Error opening database:', err.message);
+    process.exit(1);
+}
 
 // Read and execute schema
 const schemaPath = path.join(__dirname, '../database/schema.sql');
@@ -87,20 +88,12 @@ async function runMigrations() {
         if (!statement) continue;
 
         try {
-            await new Promise((resolve, reject) => {
-                db.run(statement, (err) => {
-                    if (err) {
-                        console.error(`Error executing statement ${i + 1}:`, err.message);
-                        console.error('Statement:', statement);
-                        reject(err);
-                    } else {
-                        console.log(`✓ Executed statement ${i + 1}`);
-                        resolve();
-                    }
-                });
-            });
+            db.exec(statement);
+            console.log(`✓ Executed statement ${i + 1}`);
         } catch (error) {
-            console.error('Migration failed:', error);
+            console.error(`Error executing statement ${i + 1}:`, error.message);
+            console.error('Statement:', statement);
+            db.close();
             process.exit(1);
         }
     }
@@ -108,14 +101,9 @@ async function runMigrations() {
     console.log('✅ Database migration completed successfully!');
     
     // Close database connection
-    db.close((err) => {
-        if (err) {
-            console.error('Error closing database:', err.message);
-        } else {
-            console.log('Database connection closed');
-        }
-        process.exit(0);
-    });
+    db.close();
+    console.log('Database connection closed');
+    process.exit(0);
 }
 
 runMigrations(); 

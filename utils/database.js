@@ -1,57 +1,65 @@
-const sqlite3 = require('sqlite3').verbose();
+const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
-class Database {
+class DatabaseWrapper {
     constructor() {
         const dbPath = process.env.DATABASE_URL || './database/comments.db';
-        this.db = new sqlite3.Database(dbPath, (err) => {
-            if (err) {
-                console.error('Error opening database:', err.message);
-                throw err;
+        
+        // Ensure directory exists
+        const dbDir = path.dirname(dbPath);
+        try {
+            if (!fs.existsSync(dbDir)) {
+                fs.mkdirSync(dbDir, { recursive: true });
+                console.log(`Created database directory: ${dbDir}`);
             }
+        } catch (error) {
+            console.log(`Could not create directory ${dbDir}, using file directly:`, error.message);
+        }
+        
+        try {
+            this.db = new Database(dbPath);
             console.log('Connected to SQLite database');
-        });
-
-        // Enable foreign keys
-        this.db.run('PRAGMA foreign_keys = ON');
+            
+            // Enable foreign keys
+            this.db.pragma('foreign_keys = ON');
+        } catch (err) {
+            console.error('Error opening database:', err);
+            throw err;
+        }
     }
 
-    // Helper to run queries with promises
+    // Helper to run queries (synchronous with better-sqlite3)
     run(sql, params = []) {
-        return new Promise((resolve, reject) => {
-            this.db.run(sql, params, function(err) {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve({ id: this.lastID, changes: this.changes });
-                }
-            });
-        });
+        try {
+            const stmt = this.db.prepare(sql);
+            const result = stmt.run(params);
+            return { id: result.lastInsertRowid, changes: result.changes };
+        } catch (error) {
+            console.error('Database run error:', error.message, 'SQL:', sql);
+            throw error;
+        }
     }
 
     get(sql, params = []) {
-        return new Promise((resolve, reject) => {
-            this.db.get(sql, params, (err, row) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(row);
-                }
-            });
-        });
+        try {
+            const stmt = this.db.prepare(sql);
+            return stmt.get(params);
+        } catch (error) {
+            console.error('Database get error:', error.message, 'SQL:', sql);
+            throw error;
+        }
     }
 
     all(sql, params = []) {
-        return new Promise((resolve, reject) => {
-            this.db.all(sql, params, (err, rows) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(rows);
-                }
-            });
-        });
+        try {
+            const stmt = this.db.prepare(sql);
+            return stmt.all(params);
+        } catch (error) {
+            console.error('Database all error:', error.message, 'SQL:', sql);
+            throw error;
+        }
     }
 
     // User operations
@@ -70,7 +78,7 @@ class Database {
                 updated_at = CURRENT_TIMESTAMP
         `;
 
-        const result = await this.run(sql, [
+        this.run(sql, [
             userData.figmaUserId,
             userData.email,
             userData.name,
@@ -82,20 +90,20 @@ class Database {
         ]);
 
         // Return the user record
-        const user = await this.get('SELECT * FROM users WHERE figma_user_id = ?', [userData.figmaUserId]);
+        const user = this.get('SELECT * FROM users WHERE figma_user_id = ?', [userData.figmaUserId]);
         return user;
     }
 
     async getUserById(userId) {
-        return await this.get('SELECT * FROM users WHERE id = ?', [userId]);
+        return this.get('SELECT * FROM users WHERE id = ?', [userId]);
     }
 
     async getUserByFigmaId(figmaUserId) {
-        return await this.get('SELECT * FROM users WHERE figma_user_id = ?', [figmaUserId]);
+        return this.get('SELECT * FROM users WHERE figma_user_id = ?', [figmaUserId]);
     }
 
     async getUserByHandle(handle) {
-        return await this.get('SELECT * FROM users WHERE handle = ?', [handle]);
+        return this.get('SELECT * FROM users WHERE handle = ?', [handle]);
     }
 
     async getAnyValidUser() {
@@ -106,7 +114,7 @@ class Database {
             ORDER BY updated_at DESC 
             LIMIT 1
         `;
-        return await this.get(sql);
+        return this.get(sql);
     }
 
     async updateUserTokens(refreshToken, tokenData) {
@@ -118,7 +126,7 @@ class Database {
                 updated_at = CURRENT_TIMESTAMP
             WHERE refresh_token = ?
         `;
-        return await this.run(sql, [
+        return this.run(sql, [
             tokenData.accessToken,
             tokenData.refreshToken,
             tokenData.tokenExpiresAt,
@@ -137,28 +145,28 @@ class Database {
                 updated_at = CURRENT_TIMESTAMP
         `;
 
-        await this.run(sql, [
+        this.run(sql, [
             fileData.figmaFileKey,
             fileData.fileName,
             fileData.teamId,
             fileData.ownerUserId || null
         ]);
 
-        return await this.getFileByKey(fileData.figmaFileKey);
+        return this.getFileByKey(fileData.figmaFileKey);
     }
 
     async getFileByKey(figmaFileKey) {
-        return await this.get('SELECT * FROM files WHERE figma_file_key = ?', [figmaFileKey]);
+        return this.get('SELECT * FROM files WHERE figma_file_key = ?', [figmaFileKey]);
     }
 
     async updateFileLastSynced(figmaFileKey) {
         const sql = 'UPDATE files SET last_synced_at = CURRENT_TIMESTAMP WHERE figma_file_key = ?';
-        return await this.run(sql, [figmaFileKey]);
+        return this.run(sql, [figmaFileKey]);
     }
 
     async deleteFile(figmaFileKey) {
         const sql = 'DELETE FROM files WHERE figma_file_key = ?';
-        return await this.run(sql, [figmaFileKey]);
+        return this.run(sql, [figmaFileKey]);
     }
 
     // Comment operations
@@ -178,7 +186,7 @@ class Database {
                 updated_at = CURRENT_TIMESTAMP
         `;
 
-        return await this.run(sql, [
+        return this.run(sql, [
             commentData.figmaCommentId,
             commentData.figmaFileKey,
             commentData.nodeId,
@@ -200,32 +208,32 @@ class Database {
         const sql = `
             SELECT * FROM comments 
             WHERE figma_file_key = ? 
-            ORDER BY figma_created_at ASC
+            ORDER BY figma_created_at DESC
         `;
-        return await this.all(sql, [figmaFileKey]);
+        return this.all(sql, [figmaFileKey]);
     }
 
     async getCommentsByNodeId(figmaFileKey, nodeId) {
         const sql = `
             SELECT * FROM comments 
-            WHERE figma_file_key = ? AND node_id = ? 
-            ORDER BY figma_created_at ASC
+            WHERE figma_file_key = ? AND node_id = ?
+            ORDER BY figma_created_at DESC
         `;
-        return await this.all(sql, [figmaFileKey, nodeId]);
+        return this.all(sql, [figmaFileKey, nodeId]);
     }
 
     async getCanvasComments(figmaFileKey) {
         const sql = `
             SELECT * FROM comments 
-            WHERE figma_file_key = ? AND (node_id = '0:1' OR node_name = 'Page 1' OR node_id IS NULL OR node_id = '') 
-            ORDER BY figma_created_at ASC
+            WHERE figma_file_key = ? AND (node_id IS NULL OR node_id = '')
+            ORDER BY figma_created_at DESC
         `;
-        return await this.all(sql, [figmaFileKey]);
+        return this.all(sql, [figmaFileKey]);
     }
 
     async deleteComment(figmaCommentId) {
         const sql = 'DELETE FROM comments WHERE figma_comment_id = ?';
-        return await this.run(sql, [figmaCommentId]);
+        return this.run(sql, [figmaCommentId]);
     }
 
     async resolveComment(figmaCommentId, resolvedByUserId) {
@@ -236,7 +244,7 @@ class Database {
                 updated_at = CURRENT_TIMESTAMP
             WHERE figma_comment_id = ?
         `;
-        return await this.run(sql, [resolvedByUserId, figmaCommentId]);
+        return this.run(sql, [resolvedByUserId, figmaCommentId]);
     }
 
     async unresolveComment(figmaCommentId) {
@@ -247,7 +255,7 @@ class Database {
                 updated_at = CURRENT_TIMESTAMP
             WHERE figma_comment_id = ?
         `;
-        return await this.run(sql, [figmaCommentId]);
+        return this.run(sql, [figmaCommentId]);
     }
 
     // Plugin session operations
@@ -255,9 +263,14 @@ class Database {
         const sql = `
             INSERT INTO plugin_sessions (user_id, figma_file_key, session_token, node_id)
             VALUES (?, ?, ?, ?)
+            ON CONFLICT(session_token) DO UPDATE SET
+                user_id = excluded.user_id,
+                figma_file_key = excluded.figma_file_key,
+                node_id = excluded.node_id,
+                last_activity_at = CURRENT_TIMESTAMP
         `;
 
-        return await this.run(sql, [
+        return this.run(sql, [
             sessionData.userId,
             sessionData.figmaFileKey,
             sessionData.sessionToken,
@@ -267,54 +280,54 @@ class Database {
 
     async getPluginSessionByToken(sessionToken) {
         const sql = `
-            SELECT ps.*, u.figma_user_id, u.name, u.handle, u.email
+            SELECT ps.*, u.name as user_name, u.handle as user_handle, u.email as user_email
             FROM plugin_sessions ps
-            JOIN users u ON ps.user_id = u.id
+            LEFT JOIN users u ON ps.user_id = u.id
             WHERE ps.session_token = ?
-            AND ps.created_at > datetime('now', '-24 hours')
         `;
-        return await this.get(sql, [sessionToken]);
+        return this.get(sql, [sessionToken]);
     }
 
     async updateSessionActivity(sessionToken) {
         const sql = `
-            UPDATE plugin_sessions 
-            SET last_activity_at = CURRENT_TIMESTAMP 
+            UPDATE plugin_sessions SET 
+                last_activity_at = CURRENT_TIMESTAMP
             WHERE session_token = ?
         `;
-        return await this.run(sql, [sessionToken]);
+        return this.run(sql, [sessionToken]);
     }
 
     async updateSessionNodeId(sessionToken, nodeId) {
         const sql = `
-            UPDATE plugin_sessions 
-            SET node_id = ?, last_activity_at = CURRENT_TIMESTAMP 
+            UPDATE plugin_sessions SET 
+                node_id = ?,
+                last_activity_at = CURRENT_TIMESTAMP
             WHERE session_token = ?
         `;
-        return await this.run(sql, [nodeId, sessionToken]);
+        return this.run(sql, [nodeId, sessionToken]);
     }
 
-    // Webhook event operations
+    // Webhook operations
     async createWebhookEvent(eventData) {
         const sql = `
             INSERT INTO webhook_events (event_type, figma_file_key, event_data)
             VALUES (?, ?, ?)
         `;
 
-        return await this.run(sql, [
+        return this.run(sql, [
             eventData.eventType,
             eventData.figmaFileKey,
-            eventData.eventData
+            JSON.stringify(eventData.eventData)
         ]);
     }
 
     async markWebhookEventProcessed(figmaFileKey, eventType, timestamp) {
         const sql = `
-            UPDATE webhook_events 
-            SET processed_at = CURRENT_TIMESTAMP 
-            WHERE figma_file_key = ? AND event_type = ? AND created_at >= ?
+            UPDATE webhook_events SET 
+                processed_at = CURRENT_TIMESTAMP
+            WHERE figma_file_key = ? AND event_type = ? AND created_at = ?
         `;
-        return await this.run(sql, [figmaFileKey, eventType, timestamp]);
+        return this.run(sql, [figmaFileKey, eventType, timestamp]);
     }
 
     async getUnprocessedWebhookEvents(limit = 100) {
@@ -324,10 +337,10 @@ class Database {
             ORDER BY created_at ASC 
             LIMIT ?
         `;
-        return await this.all(sql, [limit]);
+        return this.all(sql, [limit]);
     }
 
-    // File permissions operations
+    // File permission operations
     async grantFilePermission(userId, figmaFileKey, permissionLevel = 'read', grantedByUserId = null) {
         const sql = `
             INSERT INTO file_permissions (user_id, figma_file_key, permission_level, granted_by_id)
@@ -337,90 +350,92 @@ class Database {
                 granted_by_id = excluded.granted_by_id,
                 granted_at = CURRENT_TIMESTAMP
         `;
-
-        return await this.run(sql, [userId, figmaFileKey, permissionLevel, grantedByUserId]);
+        return this.run(sql, [userId, figmaFileKey, permissionLevel, grantedByUserId]);
     }
 
     async checkFilePermission(userId, figmaFileKey) {
-        const sql = `
-            SELECT permission_level FROM file_permissions 
-            WHERE user_id = ? AND figma_file_key = ?
-        `;
-        const result = await this.get(sql, [userId, figmaFileKey]);
-        return result ? result.permission_level : null;
+        const sql = 'SELECT * FROM file_permissions WHERE user_id = ? AND figma_file_key = ?';
+        return this.get(sql, [userId, figmaFileKey]);
     }
 
     async ensureFilePermission(userId, figmaFileKey) {
-        // Check existing permission
-        let permission = await this.checkFilePermission(userId, figmaFileKey);
+        // Check if permission exists
+        const existing = await this.checkFilePermission(userId, figmaFileKey);
         
-        if (!permission) {
-            // Ensure the file exists in the files table first
-            let file = await this.getFileByKey(figmaFileKey);
-            if (!file) {
-                console.log(`Creating file record for ${figmaFileKey}`);
-                // Create a basic file record - we'll update it later when we have more info
-                file = await this.createFile({
-                    figmaFileKey: figmaFileKey,
-                    fileName: 'Unknown File', // Placeholder name
-                    teamId: null,
-                    ownerUserId: userId
-                });
+        if (!existing) {
+            // Grant default read permission
+            await this.grantFilePermission(userId, figmaFileKey, 'read');
+            
+            // Check if this is the first user for this file, if so make them admin
+            const allPermissions = this.all('SELECT * FROM file_permissions WHERE figma_file_key = ?', [figmaFileKey]);
+            
+            if (allPermissions.length === 1) {
+                // This is the first user, make them admin
+                await this.grantFilePermission(userId, figmaFileKey, 'admin');
             }
             
-            // No permission exists, grant default read permission
-            console.log(`Granting default read permission to user ${userId} for file ${figmaFileKey}`);
-            await this.grantFilePermission(userId, figmaFileKey, 'read', null);
-            permission = 'read';
+            return this.checkFilePermission(userId, figmaFileKey);
         }
         
-        return permission;
+        return existing;
     }
 
     async getUserFilePermissions(userId) {
         const sql = `
-            SELECT fp.*, f.file_name 
+            SELECT fp.*, f.file_name
             FROM file_permissions fp
-            JOIN files f ON fp.figma_file_key = f.figma_file_key
+            LEFT JOIN files f ON fp.figma_file_key = f.figma_file_key
             WHERE fp.user_id = ?
             ORDER BY fp.granted_at DESC
         `;
-        return await this.all(sql, [userId]);
+        return this.all(sql, [userId]);
     }
 
-    // Webhook registration operations (for tracking webhook setup)
+    // Webhook registration (for future use)
     async createWebhookRegistration(webhookData) {
         const sql = `
-            INSERT INTO webhook_registrations (figma_file_key, event_type, endpoint, status)
+            INSERT INTO webhook_registrations (webhook_id, figma_file_key, endpoint_url, secret)
             VALUES (?, ?, ?, ?)
+            ON CONFLICT(figma_file_key) DO UPDATE SET
+                webhook_id = excluded.webhook_id,
+                endpoint_url = excluded.endpoint_url,
+                secret = excluded.secret,
+                updated_at = CURRENT_TIMESTAMP
         `;
-
-        return await this.run(sql, [
+        return this.run(sql, [
+            webhookData.webhookId,
             webhookData.figmaFileKey,
-            webhookData.eventType,
-            webhookData.endpoint,
-            webhookData.status
+            webhookData.endpointUrl,
+            webhookData.secret
         ]);
     }
 
-    // Analytics and monitoring
+    // Analytics and stats
     async getCommentStats(figmaFileKey = null) {
-        let sql = `
-            SELECT 
-                COUNT(*) as total_comments,
-                COUNT(DISTINCT author_handle) as unique_authors,
-                COUNT(CASE WHEN resolved_at IS NOT NULL THEN 1 END) as resolved_comments,
-                COUNT(CASE WHEN resolved_at IS NULL THEN 1 END) as active_comments
-            FROM comments
-        `;
-
-        const params = [];
+        let sql, params;
+        
         if (figmaFileKey) {
-            sql += ' WHERE figma_file_key = ?';
-            params.push(figmaFileKey);
+            sql = `
+                SELECT 
+                    COUNT(*) as total_comments,
+                    COUNT(CASE WHEN resolved_at IS NOT NULL THEN 1 END) as resolved_comments,
+                    COUNT(CASE WHEN resolved_at IS NULL THEN 1 END) as active_comments
+                FROM comments 
+                WHERE figma_file_key = ?
+            `;
+            params = [figmaFileKey];
+        } else {
+            sql = `
+                SELECT 
+                    COUNT(*) as total_comments,
+                    COUNT(CASE WHEN resolved_at IS NOT NULL THEN 1 END) as resolved_comments,
+                    COUNT(CASE WHEN resolved_at IS NULL THEN 1 END) as active_comments
+                FROM comments
+            `;
+            params = [];
         }
-
-        return await this.get(sql, params);
+        
+        return this.get(sql, params);
     }
 
     async getActiveUserCount(days = 7) {
@@ -429,21 +444,15 @@ class Database {
             FROM plugin_sessions 
             WHERE last_activity_at > datetime('now', '-${days} days')
         `;
-        return await this.get(sql);
+        const result = this.get(sql);
+        return result?.active_users || 0;
     }
 
-    // Close database connection
     close() {
-        return new Promise((resolve, reject) => {
-            this.db.close((err) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve();
-                }
-            });
-        });
+        if (this.db) {
+            this.db.close();
+        }
     }
 }
 
-module.exports = new Database(); 
+module.exports = DatabaseWrapper; 
