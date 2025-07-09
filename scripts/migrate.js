@@ -4,13 +4,18 @@ const path = require('path');
 require('dotenv').config();
 
 // Ensure database directory exists
-const dbDir = path.dirname(process.env.DATABASE_URL || './database/comments.db');
-if (!fs.existsSync(dbDir)) {
+const dbPath = process.env.DATABASE_URL || './database/comments.db';
+const dbDir = path.dirname(dbPath);
+
+// Only create directory if it doesn't exist and it's not /tmp
+if (dbDir !== '/tmp' && !fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
 }
 
+console.log(`Using database path: ${dbPath}`);
+
 // Connect to database
-const db = new sqlite3.Database(process.env.DATABASE_URL || './database/comments.db', (err) => {
+const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Error opening database:', err.message);
         process.exit(1);

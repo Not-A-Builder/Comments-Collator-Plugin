@@ -44,13 +44,20 @@ LOG_LEVEL=info
 
 **Important:** 
 - Replace `your_figma_client_id_here` and `your_figma_client_secret_here` with your actual Figma app credentials
-- Generate secure random strings for `WEBHOOK_SECRET` and `JWT_SECRET` (use a password generator)
-- Replace `your-app-name` with your actual Railway app subdomain
+- Generate secure random strings for `WEBHOOK_SECRET` and `JWT_SECRET` (use a password generator)  
+- Replace `your-app-name.railway.app` with your actual Railway app URL (shown on your Railway dashboard)
 
 ### 1.4 Get Your App URL
-1. In Railway dashboard, go to "Settings" → "Domains"
-2. Your app will be available at: `https://your-app-name.railway.app`
-3. Test it: `https://your-app-name.railway.app/health`
+1. In Railway dashboard, look at your deployment
+2. Your app URL will be shown directly on the main project page
+3. It will look like: `https://[random-name].railway.app` 
+4. Click on the URL or copy it from the deployment card
+5. Test it: `https://[your-url].railway.app/health`
+
+**Alternative ways to find your URL:**
+- Check the "Deployments" tab for the live URL
+- Look for the domain listed next to your service name
+- The URL is auto-generated and shown prominently on the project dashboard
 
 ## Step 2: Update Figma Developer App
 

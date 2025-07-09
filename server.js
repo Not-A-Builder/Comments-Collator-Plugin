@@ -131,7 +131,7 @@ process.on('SIGINT', () => {
 });
 
 // Start server
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
     console.log(`🚀 Comments Collator Backend Server running on port ${port}`);
     console.log(`📊 Health check: http://localhost:${port}/health`);
     console.log(`🔐 OAuth endpoint: http://localhost:${port}/auth/figma`);

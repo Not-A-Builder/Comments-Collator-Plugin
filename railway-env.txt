@@ -1,0 +1,16 @@
+NODE_ENV=production
+PORT=3000
+DATABASE_URL=/tmp/comments.db
+FIGMA_CLIENT_ID=lvYA1DyZTSTBWLVSrlFt9g
+FIGMA_CLIENT_SECRET=Gh55qUWur5KPYmFCaRv1Oc6hMFWYGA
+FIGMA_REDIRECT_URI=https://comments-collator-plugin-production.up.railway.app/auth/figma/callback
+WEBHOOK_SECRET=43be70303780a9928a02efbfd364153cb6ff4d20679f8851a9744421be641662
+JWT_SECRET=fafabb375e48b1239d65edae7ca53cd1ff4261a0b77c541fb07dcbabb9a9b68e
+JWT_EXPIRES_IN=24h
+API_BASE_URL=https://comments-collator-plugin-production.up.railway.app
+FIGMA_API_BASE_URL=https://api.figma.com/v1
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX_REQUESTS=100
+CORS_ORIGIN=https://www.figma.com
+ALLOWED_ORIGINS=https://www.figma.com,https://comments-collator-plugin-production.up.railway.app
+LOG_LEVEL=info 
