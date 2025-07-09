@@ -434,51 +434,6 @@ router.get('/check-session', async (req, res) => {
     }
 });
 
-// Migration endpoint to ensure oauth_states table exists
-router.post('/migrate-oauth-table', (req, res) => {
-    try {
-        // Create oauth_states table if it doesn't exist
-        const createTableSQL = `
-            CREATE TABLE IF NOT EXISTS oauth_states (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                state TEXT UNIQUE NOT NULL,
-                file_key TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                expires_at DATETIME NOT NULL
-            )
-        `;
-        
-        db.run(createTableSQL);
-        
-        // Create index if it doesn't exist
-        const createIndexSQL = `
-            CREATE INDEX IF NOT EXISTS idx_oauth_states_state ON oauth_states (state)
-        `;
-        
-        db.run(createIndexSQL);
-        
-        // Test the table
-        const tableExists = db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='oauth_states'");
-        const stateCount = db.get("SELECT COUNT(*) as count FROM oauth_states").count;
-        
-        res.json({
-            success: true,
-            message: 'OAuth states table created/verified successfully',
-            database: {
-                tableExists: !!tableExists,
-                stateCount: stateCount
-            },
-            timestamp: new Date().toISOString()
-        });
-        
-    } catch (error) {
-        console.error('Migration error:', error);
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            timestamp: new Date().toISOString()
-        });
-    }
-});
+
 
 module.exports = router; 
