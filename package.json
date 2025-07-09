@@ -9,7 +9,8 @@
     "test": "jest",
     "migrate": "node scripts/migrate.js",
     "setup": "./start-backend.sh",
-    "build": "npm run migrate"
+    "build": "npm rebuild sqlite3 && npm run migrate",
+    "postinstall": "npm rebuild sqlite3"
   },
   "keywords": [
     "figma",

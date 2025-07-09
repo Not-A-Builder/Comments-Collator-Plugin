@@ -7,9 +7,14 @@ require('dotenv').config();
 const dbPath = process.env.DATABASE_URL || './database/comments.db';
 const dbDir = path.dirname(dbPath);
 
-// Only create directory if it doesn't exist and it's not /tmp
-if (dbDir !== '/tmp' && !fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
+// Create directory if it doesn't exist
+try {
+    if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
+        console.log(`Created database directory: ${dbDir}`);
+    }
+} catch (error) {
+    console.log(`Could not create directory ${dbDir}, using file directly:`, error.message);
 }
 
 console.log(`Using database path: ${dbPath}`);

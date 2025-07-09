@@ -130,6 +130,10 @@ process.on('SIGINT', () => {
     process.exit(0);
 });
 
+// Test database connection on startup
+const Database = require('./utils/database');
+const db = new Database();
+
 // Start server
 app.listen(port, '0.0.0.0', () => {
     console.log(`🚀 Comments Collator Backend Server running on port ${port}`);
@@ -137,6 +141,15 @@ app.listen(port, '0.0.0.0', () => {
     console.log(`🔐 OAuth endpoint: http://localhost:${port}/auth/figma`);
     console.log(`📨 Webhook endpoint: http://localhost:${port}/webhooks/figma`);
     console.log(`📡 API endpoint: http://localhost:${port}/api`);
+    console.log(`💾 Database: ${process.env.DATABASE_URL || './database/comments.db'}`);
+    
+    // Test database connection
+    try {
+        const testResult = db.get('SELECT 1 as test');
+        console.log('✅ Database connection test successful');
+    } catch (error) {
+        console.error('❌ Database connection failed:', error.message);
+    }
 });
 
 module.exports = app; 
