@@ -23,36 +23,53 @@ const stateStore = new Map(); // Fallback in-memory store
 
 // Initiate OAuth flow
 router.get('/figma', (req, res) => {
+    console.log(`🚀 OAuth initiation requested - file_key: ${req.query.file_key}, IP: ${req.ip}`);
+    
     const state = generateState();
     const fileKey = req.query.file_key; // Optional file key for context
+    
+    console.log(`🔑 Generated OAuth state: ${state.substring(0, 16)}...`);
+    console.log(`📁 File key: ${fileKey || 'none'}`);
     
     // Try to store state in database with fallback to memory
     const expiresAt = new Date(Date.now() + (30 * 60 * 1000));
     
     try {
-        db.run(
+        console.log(`💾 Attempting to store state in database...`);
+        
+        const result = db.run(
             `INSERT OR REPLACE INTO oauth_states (state, file_key, expires_at) 
              VALUES (?, ?, datetime('now', '+30 minutes'))`,
             [state, fileKey]
         );
         
+        console.log(`📊 Database INSERT result:`, result);
+        
         // Verify state was stored
         const verifyState = db.get(`SELECT * FROM oauth_states WHERE state = ?`, [state]);
         console.log(`✅ OAuth state stored in database: ${state.substring(0, 16)}..., verified: ${!!verifyState}`);
         
-        // Show expiration details
         if (verifyState) {
             console.log(`⏰ State expires at: ${verifyState.expires_at}, current time: ${db.get("SELECT datetime('now') as now").now}`);
+            console.log(`🔍 Full stored state:`, verifyState);
+        } else {
+            console.error(`❌ State verification failed - state not found after INSERT`);
         }
+        
+        // Check total states in database
+        const totalStates = db.get(`SELECT COUNT(*) as count FROM oauth_states`);
+        console.log(`📊 Total states in database after storage: ${totalStates.count}`);
         
         // Clean up expired states
         const cleanupResult = db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
         console.log(`🧹 Cleaned up ${cleanupResult.changes} expired states`);
         
     } catch (error) {
-        console.warn('⚠️  Failed to store state in database, using memory fallback:', error.message);
+        console.error('❌ CRITICAL: Failed to store state in database:', error);
+        console.error('❌ Error stack:', error.stack);
         
         // Fallback to in-memory storage
+        console.log(`💾 Using memory fallback for state storage...`);
         stateStore.set(state, {
             file_key: fileKey,
             expires_at: expiresAt
@@ -65,8 +82,10 @@ router.get('/figma', (req, res) => {
             }
         }
         
-        console.log(`💾 OAuth state stored in memory: ${state}, total memory states: ${stateStore.size}`);
+        console.log(`💾 OAuth state stored in memory: ${state.substring(0, 16)}..., total memory states: ${stateStore.size}`);
     }
+    
+    console.log(`🔗 Building OAuth redirect URL...`);
     
     const params = new URLSearchParams({
         client_id: process.env.FIGMA_CLIENT_ID,
@@ -77,7 +96,13 @@ router.get('/figma', (req, res) => {
     });
     
     const authUrl = `${FIGMA_OAUTH_URL}?${params.toString()}`;
+    
+    console.log(`🌐 OAuth URL generated: ${authUrl.substring(0, 120)}...`);
+    console.log(`🏁 Sending redirect to Figma OAuth...`);
+    
     res.redirect(authUrl);
+    
+    console.log(`✅ OAuth initiation completed for state: ${state.substring(0, 16)}...`);
 });
 
 // OAuth callback handler
@@ -474,6 +499,59 @@ router.get('/check-session', async (req, res) => {
 
 
 
+
+// DEBUG: Test database connection
+router.get('/debug-db', (req, res) => {
+    try {
+        // Test basic database connectivity
+        const testResult = db.get('SELECT 1 as test');
+        console.log('🧪 Database test result:', testResult);
+        
+        // Test oauth_states table specifically
+        const tableExists = db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='oauth_states'");
+        console.log('🧪 OAuth states table exists:', !!tableExists);
+        
+        // Try a simple insert and delete test
+        const testState = 'test-' + Date.now();
+        console.log('🧪 Testing INSERT with state:', testState);
+        
+        const insertResult = db.run(
+            `INSERT INTO oauth_states (state, file_key, expires_at) VALUES (?, ?, datetime('now', '+1 minute'))`,
+            [testState, 'test-file']
+        );
+        console.log('🧪 INSERT result:', insertResult);
+        
+        const retrieveResult = db.get(`SELECT * FROM oauth_states WHERE state = ?`, [testState]);
+        console.log('🧪 Retrieved state:', retrieveResult);
+        
+        const deleteResult = db.run(`DELETE FROM oauth_states WHERE state = ?`, [testState]);
+        console.log('🧪 DELETE result:', deleteResult);
+        
+        res.json({
+            success: true,
+            database: {
+                connected: !!testResult,
+                oauth_states_table_exists: !!tableExists,
+                insert_test: !!insertResult,
+                retrieve_test: !!retrieveResult,
+                delete_test: deleteResult.changes > 0
+            },
+            environment: {
+                figma_client_id: !!process.env.FIGMA_CLIENT_ID,
+                figma_redirect_uri: process.env.FIGMA_REDIRECT_URI,
+                database_url: process.env.DATABASE_URL || './database/comments.db'
+            }
+        });
+        
+    } catch (error) {
+        console.error('🧪 Database test failed:', error);
+        res.status(500).json({
+            error: 'Database test failed',
+            message: error.message,
+            stack: error.stack
+        });
+    }
+});
 
 // DEBUG: Real-time OAuth state diagnostics (temporary)
 router.get('/debug-states', (req, res) => {
