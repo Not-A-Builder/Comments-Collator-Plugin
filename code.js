@@ -1047,7 +1047,7 @@ figma.ui.onmessage = async (msg) => {
   } else if (msg.type === 'open-auth') {
     try {
       // Get a fresh OAuth URL from the backend with proper state storage
-      const response = await fetch(`${BACKEND_URL}/auth/figma/url?file_key=${sessionData.fileKey}`, {
+      const response = await fetch(`${BACKEND_URL}/auth/get-oauth-url?file_key=${sessionData.fileKey}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'

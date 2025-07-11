@@ -22,7 +22,7 @@ function generateState() {
 const stateStore = new Map(); // Fallback in-memory store
 
 // Get OAuth URL for plugin (returns JSON with URL instead of redirecting)
-router.get('/figma/url', (req, res) => {
+router.get('/get-oauth-url', (req, res) => {
     console.log(`🔗 OAuth URL requested - file_key: ${req.query.file_key}, IP: ${req.ip}`);
     
     const state = generateState();
