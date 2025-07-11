@@ -127,7 +127,7 @@ router.get('/figma/callback', async (req, res) => {
         
         // Verify state parameter from database
         storedState = db.get(
-            `SELECT * FROM oauth_states WHERE state = ? AND datetime(expires_at) > datetime('now')`,
+            `SELECT * FROM oauth_states WHERE state = ? AND expires_at > datetime('now')`,
             [state]
         );
         
@@ -472,5 +472,55 @@ router.get('/check-session', async (req, res) => {
 
 
 
+
+// DEBUG: Test OAuth state storage (remove after fixing)
+router.get('/test-state-storage', (req, res) => {
+    try {
+        const testState = 'test-' + Date.now();
+        const fileKey = 'test-file';
+        
+        console.log(`🧪 Testing state storage with state: ${testState}`);
+        
+        // Store state
+        db.run(
+            `INSERT OR REPLACE INTO oauth_states (state, file_key, expires_at) 
+             VALUES (?, ?, datetime('now', '+30 minutes'))`,
+            [testState, fileKey]
+        );
+        
+        console.log(`✅ State stored successfully`);
+        
+        // Immediately try to retrieve it
+        const retrieved = db.get(
+            `SELECT * FROM oauth_states WHERE state = ? AND expires_at > datetime('now')`,
+            [testState]
+        );
+        
+        console.log(`🔍 Retrieved state:`, !!retrieved);
+        
+        // Clean up
+        db.run(`DELETE FROM oauth_states WHERE state = ?`, [testState]);
+        
+        // Also test table structure
+        const tableInfo = db.all("PRAGMA table_info(oauth_states)");
+        
+        res.json({
+            success: true,
+            testState: testState,
+            stored: true,
+            retrieved: !!retrieved,
+            retrievedData: retrieved,
+            tableStructure: tableInfo,
+            currentTime: db.get("SELECT datetime('now') as now").now
+        });
+        
+    } catch (error) {
+        console.error('❌ State storage test failed:', error);
+        res.status(500).json({
+            error: 'State storage test failed',
+            message: error.message
+        });
+    }
+});
 
 module.exports = router; 
