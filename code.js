@@ -1046,34 +1046,33 @@ figma.ui.onmessage = async (msg) => {
     await authenticateWithToken(msg.token);
   } else if (msg.type === 'open-auth') {
     try {
-      // Make a request to initiate OAuth and get the redirect URL
-      const response = await fetch(`${BACKEND_URL}/auth/figma?file_key=${sessionData.fileKey}`, {
+      // Get a fresh OAuth URL from the backend with proper state storage
+      const response = await fetch(`${BACKEND_URL}/auth/figma/url?file_key=${sessionData.fileKey}`, {
         method: 'GET',
-        redirect: 'manual' // Don't follow redirect, we want the Location header
+        headers: {
+          'Content-Type': 'application/json'
+        }
       });
       
-      // For redirects, the location header contains the OAuth URL
-      if (response.status === 302 || response.status === 301) {
-        const authUrl = response.headers.get('Location') || response.url;
-        figma.ui.postMessage({
-          type: 'open-url',
-          url: authUrl
-        });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.authUrl) {
+          console.log(`OAuth URL received: ${data.authUrl.substring(0, 80)}...`);
+          figma.ui.postMessage({
+            type: 'open-url',
+            url: data.authUrl
+          });
+        } else {
+          throw new Error(data.error || 'Failed to get OAuth URL');
+        }
       } else {
-        // Handle direct response
-        const authUrl = `${BACKEND_URL}/auth/figma?file_key=${sessionData.fileKey}`;
-        figma.ui.postMessage({
-          type: 'open-url',
-          url: authUrl
-        });
+        throw new Error(`HTTP ${response.status}`);
       }
     } catch (error) {
-      console.error('Error initiating OAuth:', error);
-      // Fallback to original method
-      const authUrl = `${BACKEND_URL}/auth/figma?file_key=${sessionData.fileKey}`;
+      console.error('Error getting OAuth URL:', error);
       figma.ui.postMessage({
-        type: 'open-url',
-        url: authUrl
+        type: 'auth-error',
+        message: 'Failed to generate authentication URL: ' + error.message
       });
     }
   } else if (msg.type === 'sync-canvas-comments') {

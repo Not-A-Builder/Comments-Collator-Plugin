@@ -21,7 +21,55 @@ function generateState() {
 // Store state with fallback for database errors
 const stateStore = new Map(); // Fallback in-memory store
 
-// Initiate OAuth flow
+// Get OAuth URL for plugin (returns JSON with URL instead of redirecting)
+router.get('/figma/url', (req, res) => {
+    console.log(`🔗 OAuth URL requested - file_key: ${req.query.file_key}, IP: ${req.ip}`);
+    
+    const state = generateState();
+    const fileKey = req.query.file_key;
+    
+    console.log(`🔑 Generated OAuth state for URL request: ${state.substring(0, 16)}...`);
+    
+    // Store state in database
+    try {
+        const result = db.run(
+            `INSERT OR REPLACE INTO oauth_states (state, file_key, expires_at) 
+             VALUES (?, ?, datetime('now', '+30 minutes'))`,
+            [state, fileKey]
+        );
+        
+        console.log(`✅ OAuth state stored for URL request: ${state.substring(0, 16)}..., changes: ${result.changes}`);
+        
+        // Build OAuth URL
+        const params = new URLSearchParams({
+            client_id: process.env.FIGMA_CLIENT_ID,
+            redirect_uri: process.env.FIGMA_REDIRECT_URI,
+            scope: 'file_read',
+            state: state,
+            response_type: 'code'
+        });
+        
+        const authUrl = `${FIGMA_OAUTH_URL}?${params.toString()}`;
+        console.log(`🌐 OAuth URL generated for plugin: ${authUrl.substring(0, 120)}...`);
+        
+        // Return URL as JSON instead of redirecting
+        res.json({
+            success: true,
+            authUrl: authUrl,
+            state: state.substring(0, 16) + '...',
+            expiresIn: 30 * 60 // 30 minutes in seconds
+        });
+        
+    } catch (error) {
+        console.error('❌ Failed to store state for URL request:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to generate OAuth URL'
+        });
+    }
+});
+
+// Initiate OAuth flow (original endpoint for direct browser access)
 router.get('/figma', (req, res) => {
     console.log(`🚀 OAuth initiation requested - file_key: ${req.query.file_key}, IP: ${req.ip}`);
     
