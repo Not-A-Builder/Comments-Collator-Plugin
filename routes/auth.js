@@ -553,6 +553,39 @@ router.get('/debug-db', (req, res) => {
     }
 });
 
+// DEBUG: Simple OAuth test endpoint  
+router.get('/test-oauth-flow', (req, res) => {
+    const state = generateState();
+    console.log(`🧪 TEST: Generated state: ${state.substring(0, 16)}...`);
+    
+    try {
+        // Try to store state
+        const result = db.run(
+            `INSERT OR REPLACE INTO oauth_states (state, file_key, expires_at) 
+             VALUES (?, ?, datetime('now', '+30 minutes'))`,
+            [state, 'test-manual']
+        );
+        
+        console.log(`🧪 TEST: Storage result:`, result);
+        
+        // Verify it was stored
+        const verify = db.get(`SELECT * FROM oauth_states WHERE state = ?`, [state]);
+        console.log(`🧪 TEST: Verification:`, !!verify);
+        
+        res.json({
+            success: true,
+            generatedState: state,
+            stored: !!result,
+            verified: !!verify,
+            allStates: db.all(`SELECT state, file_key, created_at, expires_at FROM oauth_states ORDER BY created_at DESC LIMIT 5`)
+        });
+        
+    } catch (error) {
+        console.error(`🧪 TEST ERROR:`, error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // DEBUG: Real-time OAuth state diagnostics (temporary)
 router.get('/debug-states', (req, res) => {
     try {

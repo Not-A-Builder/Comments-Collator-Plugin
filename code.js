@@ -1045,11 +1045,37 @@ figma.ui.onmessage = async (msg) => {
   } else if (msg.type === 'authenticate') {
     await authenticateWithToken(msg.token);
   } else if (msg.type === 'open-auth') {
-    const authUrl = `${BACKEND_URL}/auth/figma?file_key=${sessionData.fileKey}`;
+    try {
+      // Make a request to initiate OAuth and get the redirect URL
+      const response = await fetch(`${BACKEND_URL}/auth/figma?file_key=${sessionData.fileKey}`, {
+        method: 'GET',
+        redirect: 'manual' // Don't follow redirect, we want the Location header
+      });
+      
+      // For redirects, the location header contains the OAuth URL
+      if (response.status === 302 || response.status === 301) {
+        const authUrl = response.headers.get('Location') || response.url;
         figma.ui.postMessage({
-      type: 'open-url',
-      url: authUrl
-    });
+          type: 'open-url',
+          url: authUrl
+        });
+      } else {
+        // Handle direct response
+        const authUrl = `${BACKEND_URL}/auth/figma?file_key=${sessionData.fileKey}`;
+        figma.ui.postMessage({
+          type: 'open-url',
+          url: authUrl
+        });
+      }
+    } catch (error) {
+      console.error('Error initiating OAuth:', error);
+      // Fallback to original method
+      const authUrl = `${BACKEND_URL}/auth/figma?file_key=${sessionData.fileKey}`;
+      figma.ui.postMessage({
+        type: 'open-url',
+        url: authUrl
+      });
+    }
   } else if (msg.type === 'sync-canvas-comments') {
     await syncCanvasComments(msg.operationId);
   } else if (msg.type === 'sync-frame-comments') {
