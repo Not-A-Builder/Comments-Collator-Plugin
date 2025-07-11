@@ -475,4 +475,56 @@ router.get('/check-session', async (req, res) => {
 
 
 
+// DEBUG: Real-time OAuth state diagnostics (temporary)
+router.get('/debug-states', (req, res) => {
+    try {
+        // Get all current states
+        const allStates = db.all(`SELECT * FROM oauth_states ORDER BY created_at DESC`);
+        const currentTime = db.get("SELECT datetime('now') as now").now;
+        
+        // Check memory states
+        const memoryStates = Array.from(stateStore.entries()).map(([key, value]) => ({
+            state: key,
+            file_key: value.file_key,
+            expires_at: value.expires_at,
+            expired: new Date() > new Date(value.expires_at)
+        }));
+        
+        // Count expired vs valid states
+        const validDbStates = allStates.filter(s => s.expires_at > currentTime);
+        const expiredDbStates = allStates.filter(s => s.expires_at <= currentTime);
+        
+        res.json({
+            currentTime: currentTime,
+            database: {
+                total: allStates.length,
+                valid: validDbStates.length,
+                expired: expiredDbStates.length,
+                states: allStates.map(s => ({
+                    state: s.state.substring(0, 16) + '...',
+                    file_key: s.file_key,
+                    created_at: s.created_at,
+                    expires_at: s.expires_at,
+                    isValid: s.expires_at > currentTime
+                }))
+            },
+            memory: {
+                total: memoryStates.length,
+                states: memoryStates.map(s => ({
+                    state: s.state.substring(0, 16) + '...',
+                    file_key: s.file_key,
+                    expires_at: s.expires_at,
+                    expired: s.expired
+                }))
+            }
+        });
+        
+    } catch (error) {
+        res.status(500).json({
+            error: error.message,
+            stack: error.stack
+        });
+    }
+});
+
 module.exports = router; 
