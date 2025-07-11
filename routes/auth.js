@@ -153,111 +153,131 @@ router.get('/figma', (req, res) => {
     console.log(`✅ OAuth initiation completed for state: ${state.substring(0, 16)}...`);
 });
 
-// OAuth callback handler
+// OAuth callback handler with comprehensive error handling
 router.get('/figma/callback', async (req, res) => {
     const { code, state } = req.query;
     
-    console.log(`OAuth callback received: code=${code ? 'present' : 'missing'}, state=${state}`);
+    console.log(`🔄 OAuth callback received: code=${code ? 'present' : 'missing'}, state=${state ? state.substring(0, 16) + '...' : 'missing'}`);
     
-    if (!code || !state) {
-        console.log('Missing code or state parameter');
-        return res.status(400).send(`
-            <!DOCTYPE html>
-            <html>
-            <head><title>Authentication Error</title></head>
-            <body>
-                <h1>Authentication Error</h1>
-                <p>Missing authorization code or state parameter.</p>
-                <p>Code: ${code ? 'Present' : 'Missing'}, State: ${state ? 'Present' : 'Missing'}</p>
-                <a href="/auth/figma">Try again</a>
-            </body>
-            </html>
-        `);
-    }
-    
-    // Try to verify state from database first, then fallback to memory
-    let storedState = null;
-    
+    // Wrap entire callback in try-catch to prevent server crashes
     try {
-        // Clean up expired states first
-        const cleanupResult = db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
-        console.log(`🧹 Callback: Cleaned up ${cleanupResult.changes} expired states`);
+        if (!code || !state) {
+            console.log('❌ Missing code or state parameter');
+            return res.status(400).send(`
+                <!DOCTYPE html>
+                <html>
+                <head><title>Authentication Error</title></head>
+                <body>
+                    <h1>Authentication Error</h1>
+                    <p>Missing authorization code or state parameter.</p>
+                    <p>Code: ${code ? 'Present' : 'Missing'}, State: ${state ? 'Present' : 'Missing'}</p>
+                    <a href="/auth/figma">Try again</a>
+                </body>
+                </html>
+            `);
+        }
+    
+        // Try to verify state from database first, then fallback to memory
+        let storedState = null;
+    
+        console.log('🔄 Starting state verification process...');
         
-        // Count total states before lookup
-        const totalStates = db.get(`SELECT COUNT(*) as count FROM oauth_states`);
-        console.log(`📊 Total states in database: ${totalStates.count}`);
-        
-        // Show current time and search details
-        const currentTime = db.get("SELECT datetime('now') as now").now;
-        console.log(`🔍 Looking for state: ${state.substring(0, 16)}..., current time: ${currentTime}`);
-        
-        // Check if state exists at all (regardless of expiration)
-        const stateExists = db.get(`SELECT * FROM oauth_states WHERE state = ?`, [state]);
-        console.log(`📋 State exists in table: ${!!stateExists}`);
-        if (stateExists) {
-            console.log(`⏰ State expires at: ${stateExists.expires_at}, is valid: ${stateExists.expires_at > currentTime}`);
+        try {
+            // Clean up expired states first
+            console.log('🔄 Cleaning up expired states...');
+            const cleanupResult = db.run(`DELETE FROM oauth_states WHERE expires_at < datetime('now')`);
+            console.log(`🧹 Callback: Cleaned up ${cleanupResult.changes} expired states`);
+            
+            // Count total states before lookup
+            const totalStates = db.get(`SELECT COUNT(*) as count FROM oauth_states`);
+            console.log(`📊 Total states in database: ${totalStates.count}`);
+            
+            // Show current time and search details
+            const currentTime = db.get("SELECT datetime('now') as now").now;
+            console.log(`🔍 Looking for state: ${state.substring(0, 16)}..., current time: ${currentTime}`);
+            
+            // Check if state exists at all (regardless of expiration)
+            const stateExists = db.get(`SELECT * FROM oauth_states WHERE state = ?`, [state]);
+            console.log(`📋 State exists in table: ${!!stateExists}`);
+            if (stateExists) {
+                console.log(`⏰ State expires at: ${stateExists.expires_at}, is valid: ${stateExists.expires_at > currentTime}`);
+            }
+            
+            // Verify state parameter from database
+            storedState = db.get(
+                `SELECT * FROM oauth_states WHERE state = ? AND expires_at > datetime('now')`,
+                [state]
+            );
+            
+            console.log(`🔍 Found valid state in database: ${!!storedState}`);
+            
+            if (storedState) {
+                // Remove the used state from database
+                const deleteResult = db.run(`DELETE FROM oauth_states WHERE state = ?`, [state]);
+                console.log(`✅ State validated from database and removed: ${state.substring(0, 16)}..., deleted: ${deleteResult.changes} rows`);
+            }
+            
+        } catch (dbError) {
+            console.error('💥 Database error during state verification:', dbError);
+            console.error('💥 Database error stack:', dbError.stack);
+            console.warn('⚠️  Using memory fallback due to database error');
+        }
+    
+        // If not found in database, check memory fallback
+        if (!storedState) {
+            console.log(`🔄 State not found in database, checking memory fallback. Memory has ${stateStore.size} states`);
+            
+            try {
+                const memoryState = stateStore.get(state);
+                console.log(`🔍 Looking for state in memory: ${state.substring(0, 16)}..., found: ${!!memoryState}`);
+                
+                if (memoryState && new Date() <= new Date(memoryState.expires_at)) {
+                    storedState = {
+                        state: state,
+                        file_key: memoryState.file_key,
+                        expires_at: memoryState.expires_at
+                    };
+                    stateStore.delete(state);
+                    console.log(`✅ State validated from memory and removed: ${state.substring(0, 16)}..., remaining memory states: ${stateStore.size}`);
+                } else if (memoryState) {
+                    console.log(`⏰ State found in memory but expired: ${state.substring(0, 16)}...`);
+                }
+            } catch (memoryError) {
+                console.error('💥 Memory fallback error:', memoryError);
+                console.error('💥 Memory error stack:', memoryError.stack);
+            }
+        }
+    
+        // If state not found in either database or memory
+        if (!storedState) {
+            console.log(`❌ FINAL OAUTH ERROR: State parameter not found in database or memory: ${state.substring(0, 16)}...`);
+            
+            try {
+                const dbStateCount = db.get('SELECT COUNT(*) as count FROM oauth_states')?.count || 0;
+                console.log(`📊 Final diagnostic: Database states: ${dbStateCount}, Memory states: ${stateStore.size}`);
+                console.log(`🔍 All memory state keys: [${Array.from(stateStore.keys()).map(k => k.substring(0, 8) + '...').join(', ')}]`);
+            } catch (diagnosticError) {
+                console.error('💥 Error during final diagnostic:', diagnosticError);
+            }
+            
+            return res.status(400).send(`
+                <!DOCTYPE html>
+                <html>
+                <head><title>Authentication Error</title></head>
+                <body>
+                    <h1>Authentication Error</h1>
+                    <p>Invalid or expired state parameter.</p>
+                    <p>This usually happens if you took too long to complete the OAuth flow or if you're using an old link.</p>
+                    <p><strong>Debug info:</strong> State ${state} not found in storage</p>
+                    <a href="/auth/figma">Try again with a fresh link</a>
+                </body>
+                </html>
+            `);
         }
         
-        // Verify state parameter from database
-        storedState = db.get(
-            `SELECT * FROM oauth_states WHERE state = ? AND expires_at > datetime('now')`,
-            [state]
-        );
-        
-        console.log(`🔍 Found valid state in database: ${!!storedState}`);
-        
-        if (storedState) {
-            // Remove the used state from database
-            const deleteResult = db.run(`DELETE FROM oauth_states WHERE state = ?`, [state]);
-            console.log(`✅ State validated from database and removed: ${state}, deleted: ${deleteResult.changes} rows`);
-        }
-        
-    } catch (error) {
-        console.warn('⚠️  Failed to check state in database, checking memory fallback:', error.message);
-    }
+        console.log(`✅ State verification completed successfully!`);
     
-    // If not found in database, check memory fallback
-    if (!storedState) {
-        console.log(`🔍 State not found in database, checking memory fallback. Memory has ${stateStore.size} states`);
-        const memoryState = stateStore.get(state);
-        console.log(`🔍 Looking for state in memory: ${state}, found: ${!!memoryState}`);
-        
-        if (memoryState && new Date() <= new Date(memoryState.expires_at)) {
-            storedState = {
-                state: state,
-                file_key: memoryState.file_key,
-                expires_at: memoryState.expires_at
-            };
-            stateStore.delete(state);
-            console.log(`✅ State validated from memory and removed: ${state}, remaining memory states: ${stateStore.size}`);
-        } else if (memoryState) {
-            console.log(`⏰ State found in memory but expired: ${state}`);
-        }
-    }
-    
-    // If state not found in either database or memory
-    if (!storedState) {
-        console.log(`❌ OAUTH ERROR: State parameter not found in database or memory: ${state}`);
-        console.log(`📊 Final state: Database states: ${db.get('SELECT COUNT(*) as count FROM oauth_states').count}, Memory states: ${stateStore.size}`);
-        console.log(`🔍 All memory state keys: [${Array.from(stateStore.keys()).join(', ')}]`);
-        
-        return res.status(400).send(`
-            <!DOCTYPE html>
-            <html>
-            <head><title>Authentication Error</title></head>
-            <body>
-                <h1>Authentication Error</h1>
-                <p>Invalid or expired state parameter.</p>
-                <p>This usually happens if you took too long to complete the OAuth flow or if you're using an old link.</p>
-                <p><strong>Debug info:</strong> State ${state} not found in storage</p>
-                <a href="/auth/figma">Try again with a fresh link</a>
-            </body>
-            </html>
-        `);
-    }
-    
-    try {
-        console.log('Exchanging authorization code for access token...');
+        console.log('🔄 Exchanging authorization code for access token...');
         // Exchange code for access token
         const tokenResponse = await axios.post(FIGMA_TOKEN_URL, {
             client_id: process.env.FIGMA_CLIENT_ID,
@@ -268,10 +288,10 @@ router.get('/figma/callback', async (req, res) => {
         });
         
         const { access_token, refresh_token, expires_in } = tokenResponse.data;
-        console.log('Access token received successfully');
+        console.log('✅ Access token received successfully');
         
         // Get user information
-        console.log('Fetching user information from Figma...');
+        console.log('🔄 Fetching user information from Figma...');
         const userResponse = await axios.get(FIGMA_USER_URL, {
             headers: {
                 'Authorization': `Bearer ${access_token}`
@@ -279,11 +299,12 @@ router.get('/figma/callback', async (req, res) => {
         });
         
         const userData = userResponse.data;
-        console.log(`User authenticated: ${userData.handle} (${userData.email})`);
+        console.log(`✅ User authenticated: ${userData.handle} (${userData.email})`);
         
         // Store user in database
+        console.log('🔄 Storing user in database...');
         const expiresAt = new Date(Date.now() + (expires_in * 1000));
-        const user = db.upsertUser({
+        const user = await db.upsertUser({
             figmaUserId: userData.id,
             email: userData.email,
             name: userData.name,
@@ -294,7 +315,10 @@ router.get('/figma/callback', async (req, res) => {
             tokenExpiresAt: expiresAt
         });
         
+        console.log('✅ User stored in database successfully');
+        
         // Generate JWT for plugin authentication
+        console.log('🔄 Generating JWT token...');
         const jwtToken = jwt.sign(
             { 
                 userId: user.id,
@@ -306,14 +330,15 @@ router.get('/figma/callback', async (req, res) => {
         );
         
         // Create session for plugin
+        console.log('🔄 Creating plugin session...');
         const sessionToken = crypto.randomBytes(32).toString('hex');
-        db.createPluginSession({
+        await db.createPluginSession({
             userId: user.id,
             figmaFileKey: storedState.file_key || null,
             sessionToken: sessionToken
         });
         
-        console.log(`Plugin session created: ${sessionToken.substring(0, 8)}...`);
+        console.log(`✅ Plugin session created: ${sessionToken.substring(0, 8)}...`);
         
         // Return success page with token
         res.send(`
@@ -371,21 +396,26 @@ router.get('/figma/callback', async (req, res) => {
         `);
         
     } catch (error) {
-        console.error('OAuth callback error:', error);
-        console.error('Error details:', {
+        console.error('💥 CRITICAL OAuth callback error:', error);
+        console.error('💥 Error details:', {
             message: error.message,
+            stack: error.stack,
             response: error.response?.data,
             status: error.response?.status
         });
+        
+        // Send error response to user
         res.status(500).send(`
             <!DOCTYPE html>
             <html>
             <head><title>Authentication Error</title></head>
             <body>
                 <h1>Authentication Error</h1>
-                <p>Failed to complete authentication: ${error.message}</p>
-                <p>Status: ${error.response?.status || 'Unknown'}</p>
-                <a href="/auth/figma">Try again</a>
+                <p>Failed to complete authentication due to a server error.</p>
+                <p><strong>Error:</strong> ${error.message}</p>
+                <p><strong>Status:</strong> ${error.response?.status || 'Unknown'}</p>
+                <p>Please try again or contact support if the issue persists.</p>
+                <a href="/auth/figma">Try again with a fresh link</a>
             </body>
             </html>
         `);
